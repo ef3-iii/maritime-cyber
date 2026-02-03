@@ -1,0 +1,6 @@
+# Claude Code Setup Guide
+
+## Quick Start
+...
+[full content as shown above]
+...

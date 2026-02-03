@@ -1,0 +1,6 @@
+# Claude Code Permission Verification Guide
+
+## Quick Verification
+...
+[full content as shown above]
+...

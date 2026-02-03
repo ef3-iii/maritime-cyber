@@ -1,0 +1,6 @@
+# Claude Code Zero-Trust Security Model
+
+## Overview
+...
+[full content as shown above]
+...

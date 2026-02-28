@@ -1,0 +1,27 @@
+# Maritime Cyber Security Project - Python Dependencies
+
+# HTTP requests and web scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# RSS feed parsing
+feedparser>=6.0.0
+
+# Data processing
+pandas>=2.0.0
+python-dateutil>=2.8.0
+
+# Optional: For advanced analysis
+# numpy>=1.24.0
+# matplotlib>=3.7.0
+
+# Optional: For database storage
+# sqlalchemy>=2.0.0
+# psycopg2-binary>=2.9.0
+
+# Testing
+pytest>=7.4.0
+pytest-mock>=3.11.0
+pytest-cov>=4.1.0
+responses>=0.23.0

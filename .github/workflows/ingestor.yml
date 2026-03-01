@@ -1,0 +1,70 @@
+name: MTS Cyber Ops Ingestor
+
+on:
+  # ── SCHEDULED RUNS ─────────────────────────────────────────
+  # GitHub Actions minimum is every 5 minutes.
+  # Two overlapping schedules = effective 10-minute cadence.
+  schedule:
+    - cron: "0,10,20,30,40,50 * * * *"   # every 10 minutes on the hour
+    - cron: "5,15,25,35,45,55 * * * *"   # offset 5 min — catches gaps
+
+  # ── MANUAL TRIGGER ─────────────────────────────────────────
+  # Run on-demand from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Enable debug logging"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+  # ── PUSH TRIGGER ───────────────────────────────────────────
+  # Re-run when ingestor code is updated
+  push:
+    paths:
+      - "ingestor/**"
+      - ".github/workflows/ingestor.yml"
+
+jobs:
+  ingest:
+    name: Run Intelligence Ingestor
+    runs-on: ubuntu-latest
+    timeout-minutes: 8          # hard kill at 8 min — well under 10-min window
+
+    steps:
+      # ── 1. CHECKOUT ──────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. PYTHON SETUP ──────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: ingestor/requirements.txt
+
+      # ── 3. INSTALL DEPENDENCIES ──────────────────────────────
+      - name: Install dependencies
+        run: pip install -r ingestor/requirements.txt
+
+      # ── 4. RUN INGESTOR ──────────────────────────────────────
+      - name: Run ingestor
+        working-directory: ingestor
+        env:
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+          NTFY_TOPIC:    ${{ secrets.NTFY_TOPIC }}
+          OTX_API_KEY:   ${{ secrets.OTX_API_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: python ingestor.py
+
+      # ── 5. UPLOAD LOGS ON FAILURE ────────────────────────────
+      - name: Upload failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestor-failure-${{ github.run_id }}
+          path: ingestor/*.log
+          retention-days: 7

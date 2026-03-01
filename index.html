@@ -363,6 +363,7 @@
     .settings-drawer {
       width:420px; background:#0a0f1e; border-left:1px solid var(--border);
       display:flex; flex-direction:column; height:100vh; overflow:hidden;
+      position:relative; z-index:10001;
     }
     .settings-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -376,7 +377,7 @@
       display:flex; align-items:center; justify-content:center;
     }
     .settings-close:hover { border-color:var(--red); color:var(--red); }
-    .settings-body { flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:20px; }
+    .settings-body { flex:1; overflow-y:scroll; padding:16px 20px; display:flex; flex-direction:column; gap:20px; position:relative; z-index:10001; }
     .settings-section { border:1px solid var(--border); border-radius:4px; overflow:hidden; }
     .settings-section-hdr {
       padding:8px 14px; background:rgba(255,255,255,0.03);
@@ -1379,8 +1380,8 @@
             </div>
             <select class="setting-input" style="width:120px;" id="pollSelect" onchange="applyPollInterval(this.value)">
               <option value="300000">5 min</option>
-              <option value="600000" selected>10 min</option>
-              <option value="900000">15 min</option>
+              <option value="600000">10 min</option>
+              <option value="900000" selected>15 min</option>
               <option value="1800000">30 min</option>
               <option value="3600000">60 min</option>
             </select>
@@ -1399,7 +1400,7 @@
   const SUPABASE_URL  = 'https://ifrlixhrtaesthtxjdyh.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcmxpeGhydGFlc3RodHhqZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDcxOTYsImV4cCI6MjA4Nzg4MzE5Nn0.eeH6RLyCcI4hbB5afbKr8osmqtgfG5wFGeoTxi8iKYM';
 
-  const POLL_INTERVAL_MS = 10 * 60 * 1000;  // 10 minutes
+  const POLL_INTERVAL_MS = 15 * 60 * 1000;  // 15 minutes
   let   lastFetchAt      = null;
 
   // ── CLOCK ────────────────────────────────────────────────────────────────────

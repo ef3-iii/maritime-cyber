@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MTS Cyber Ops Center v2</title>
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --panel: #0f1628;
+      --border: #1e2d4a;
+      --accent: #00c8ff;
+      --red: #ff3b3b;
+      --orange: #ff8c00;
+      --yellow: #ffd700;
+      --green: #00e676;
+      --muted: #4a5a7a;
+      --text: #c8d8f0;
+      --text-dim: #6a7a9a;
+      --font: 'Courier New', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        linear-gradient(rgba(0,200,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,255,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    /* CRT scanline overlay */
+    body::after {
+      content: '';
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.04) 2px,
+        rgba(0,0,0,0.04) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+    /* TLP bar */
+    .tlp-bar {
+      background: #1a0a00;
+      border-bottom: 1px solid #ff6600;
+      padding: 3px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 9px; letter-spacing: 2px; color: #ff6600;
+      text-transform: uppercase;
+    }
+    .tlp-tag { font-weight: bold; color: #fff; background: #ff6600; padding: 1px 8px; border-radius: 2px; margin-right: 8px; }
+    .session-id { color: var(--muted); font-size: 8px; letter-spacing: 1px; }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo {
+      width: 36px; height: 36px;
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--accent);
+    }
+    .title-block h1 { font-size: 15px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+    .title-block p { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    .clock { font-size: 20px; color: var(--accent); letter-spacing: 2px; font-weight: bold; }
+    .date-str { font-size: 10px; color: var(--text-dim); text-align: right; }
+    .world-clocks { display: flex; gap: 16px; align-items: center; }
+    .city-clock {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 4px 12px;
+      border-left: 1px solid var(--border);
+    }
+    .city-clock:first-child { border-left: none; }
+    .city-label { font-size: 8px; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 2px; }
+    .city-time { font-size: 15px; color: var(--accent); letter-spacing: 2px; font-weight: bold; font-family: 'Courier New', monospace; }
+    .city-tz { font-size: 8px; color: var(--muted); letter-spacing: 1px; margin-top: 1px; }
+
+    /* threat level badge */
+    .threat-badge {
+      padding: 6px 16px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border: 1px solid;
+      animation: pulse 2s infinite;
+    }
+    .threat-CRITICAL { background: rgba(255,59,59,0.15); color: var(--red); border-color: var(--red); }
+    .threat-HIGH { background: rgba(255,140,0,0.15); color: var(--orange); border-color: var(--orange); }
+    .threat-ELEVATED { background: rgba(255,215,0,0.15); color: var(--yellow); border-color: var(--yellow); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    /* ── OP BANNER ── */
+    .op-banner {
+      display: flex; gap: 1px;
+      margin: 16px 24px 0;
+    }
+    .op-tile {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 4px;
+      border-left: 3px solid;
+    }
+    .op-tile.us   { background: rgba(0,123,255,0.08); border-color: #0077ff; }
+    .op-tile.il   { background: rgba(0,200,100,0.08); border-color: #00c864; }
+    .op-tile.ir   { background: rgba(255,59,59,0.08); border-color: var(--red); }
+    .op-tile h3   { font-size: 9px; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+    .op-tile .op-name { font-size: 13px; font-weight: bold; }
+    .op-tile.us .op-name { color: #0099ff; }
+    .op-tile.il .op-name { color: #00c864; }
+    .op-tile.ir .op-name { color: var(--red); }
+    .op-tile .op-status { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+    /* ── MAIN GRID ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 1px;
+      padding: 16px 24px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .panel-header h2 { font-size: 10px; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+    .panel-header .badge {
+      font-size: 9px; padding: 2px 8px;
+      border-radius: 2px; border: 1px solid; letter-spacing: 1px;
+    }
+    .badge-live { color: var(--red); border-color: var(--red); animation: pulse 1s infinite; }
+    .badge-feed { color: var(--accent); border-color: var(--accent); }
+    .badge-alert { color: var(--orange); border-color: var(--orange); }
+
+    /* span 2 cols */
+    .col-span-2 { grid-column: span 2; }
+    .col-span-3 { grid-column: span 3; }
+
+    /* ── THREAT ACTOR TABLE ── */
+    .actor-table { width: 100%; border-collapse: collapse; }
+    .actor-table th {
+      text-align: left; font-size: 9px; letter-spacing: 1px;
+      color: var(--text-dim); padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+    }
+    .actor-table td { padding: 8px 14px; border-bottom: 1px solid rgba(30,45,74,0.5); vertical-align: top; }
+    .actor-table tr:last-child td { border-bottom: none; }
+    .actor-table tr:hover td { background: rgba(0,200,255,0.03); }
+    .actor-name { color: var(--accent); font-weight: bold; font-size: 12px; }
+    .actor-country { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+    .sev { font-size: 9px; padding: 2px 7px; border-radius: 2px; display: inline-block; }
+    .sev-crit { background: rgba(255,59,59,0.2); color: var(--red); }
+    .sev-high { background: rgba(255,140,0,0.2); color: var(--orange); }
+    .sev-med  { background: rgba(255,215,0,0.15); color: var(--yellow); }
+    .ttp-tag {
+      display: inline-block; font-size: 9px; padding: 1px 6px;
+      background: rgba(0,200,255,0.08); color: var(--accent);
+      border: 1px solid rgba(0,200,255,0.2); border-radius: 2px; margin: 1px;
+    }
+
+    /* ── FEED / ALERTS ── */
+    .feed { padding: 0; max-height: 280px; overflow-y: auto; }
+    .feed::-webkit-scrollbar { width: 3px; }
+    .feed::-webkit-scrollbar-thumb { background: var(--border); }
+    .feed-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(30,45,74,0.5);
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+    .dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .dot-orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+    .dot-yellow { background: var(--yellow); }
+    .dot-green { background: var(--green); }
+    .dot-blue { background: var(--accent); }
+    .feed-content { flex: 1; }
+    .feed-headline { font-size: 11px; color: var(--text); margin-bottom: 3px; line-height: 1.4; }
+    .feed-meta { font-size: 9px; color: var(--text-dim); display: flex; gap: 10px; }
+    .feed-source { color: var(--accent); }
+
+    /* ── METRICS ROW ── */
+    .metrics {
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      gap: 1px; padding: 0 24px 16px;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .metric-val { font-size: 26px; font-weight: bold; }
+    .metric-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+    .metric-delta { font-size: 9px; margin-top: 3px; }
+    .delta-up { color: var(--red); }
+    .delta-dn { color: var(--green); }
+    .val-red { color: var(--red); }
+    .val-orange { color: var(--orange); }
+    .val-yellow { color: var(--yellow); }
+    .val-green { color: var(--green); }
+    .val-blue { color: var(--accent); }
+
+    /* ── RANSOMWARE PANEL ── */
+    .ransom-list { padding: 0; max-height: 260px; overflow-y: auto; }
+    .ransom-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 14px; border-bottom: 1px solid rgba(30,45,74,0.4);
+    }
+    .ransom-item:last-child { border-bottom: none; }
+    .ransom-group { font-size: 11px; color: var(--text); }
+    .ransom-count { font-size: 11px; color: var(--orange); font-weight: bold; }
+    .ransom-bar-wrap { width: 80px; background: var(--border); border-radius: 2px; height: 4px; }
+    .ransom-bar { height: 4px; border-radius: 2px; background: var(--orange); }
+
+    /* ── MTS SECTOR TABLE ── */
+    .sector-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1px; padding: 14px; }
+    .sector-tile {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      text-align: center;
+    }
+    .sector-tile .sector-icon { font-size: 20px; margin-bottom: 4px; }
+    .sector-tile .sector-name { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+    .sector-tile .sector-risk { font-size: 10px; font-weight: bold; margin-top: 4px; letter-spacing: 1px; }
+    .risk-crit { color: var(--red); }
+    .risk-high { color: var(--orange); }
+    .risk-med { color: var(--yellow); }
+    .risk-low { color: var(--green); }
+
+    /* ── NTFY STATUS ── */
+    .ntfy-block { padding: 14px; }
+    .ntfy-status { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .ntfy-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.5s infinite; }
+    .ntfy-label { font-size: 11px; color: var(--text); }
+    .ntfy-topic { font-size: 10px; color: var(--accent); font-family: var(--font); }
+    .ntfy-tiers { display: flex; flex-direction: column; gap: 6px; }
+    .ntfy-tier { display: flex; align-items: center; gap: 8px; font-size: 10px; }
+    .ntfy-tier-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .ntfy-setup { margin-top: 12px; padding: 10px; background: rgba(0,200,255,0.05); border: 1px solid rgba(0,200,255,0.15); border-radius: 4px; }
+    .ntfy-setup p { font-size: 10px; color: var(--text-dim); line-height: 1.6; }
+    .ntfy-setup code { color: var(--accent); font-family: var(--font); }
+
+    /* ── FOOTER ── */
+    footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      font-size: 9px; color: var(--text-dim); letter-spacing: 1px;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ── TICKER ── */
+    .ticker-wrap {
+      background: rgba(255,59,59,0.08);
+      border-top: 1px solid rgba(255,59,59,0.2);
+      border-bottom: 1px solid rgba(255,59,59,0.2);
+      overflow: hidden; white-space: nowrap;
+      padding: 6px 0;
+      margin: 0 0 0 0;
+    }
+    .ticker-inner { display: inline-block; animation: ticker 40s linear infinite; }
+    @keyframes ticker { from{transform:translateX(100vw)} to{transform:translateX(-100%)} }
+    .ticker-inner span { margin: 0 40px; font-size: 10px; color: var(--red); letter-spacing: 1px; }
+    .ticker-inner .sep { color: var(--muted); }
+
+    /* ── CONFIDENCE BAR ── */
+    .conf-bar-wrap { display:inline-flex; align-items:center; gap:6px; vertical-align:middle; }
+    .conf-bar-bg { width:50px; height:4px; background:var(--border); border-radius:2px; display:inline-block; }
+    .conf-bar-fill { height:4px; border-radius:2px; display:block; }
+    .conf-pct { font-size:9px; color:var(--text-dim); }
+
+    /* ── MITRE HEATMAP ── */
+    .mitre-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; padding:12px; }
+    .mitre-cell {
+      padding:6px 4px; border-radius:3px; text-align:center; cursor:default;
+      border:1px solid transparent; transition:all 0.2s;
+      position:relative;
+    }
+    .mitre-cell:hover { border-color:var(--accent); z-index:10; }
+    .mitre-cell .mc-id { font-size:8px; color:var(--text-dim); letter-spacing:0.5px; }
+    .mitre-cell .mc-name { font-size:8px; font-weight:bold; margin-top:2px; line-height:1.2; }
+    .mitre-cell .mc-count { font-size:10px; font-weight:bold; margin-top:3px; }
+    .mc-hot  { background:rgba(255,59,59,0.25);  border-color:rgba(255,59,59,0.4)!important;  }
+    .mc-warm { background:rgba(255,140,0,0.2);   border-color:rgba(255,140,0,0.3)!important;  }
+    .mc-cool { background:rgba(255,215,0,0.1);   border-color:rgba(255,215,0,0.2)!important;  }
+    .mc-cold { background:rgba(30,45,74,0.5);    }
+    .mc-hot .mc-name  { color:var(--red); }
+    .mc-warm .mc-name { color:var(--orange); }
+    .mc-cool .mc-name { color:var(--yellow); }
+    .mc-cold .mc-name { color:var(--muted); }
+
+    /* ── RELATIONSHIP GRAPH ── */
+    .graph-wrap { padding:12px; overflow:auto; }
+    .graph-wrap svg { width:100%; min-height:220px; }
+    .node-label { font-family:'Courier New',monospace; font-size:10px; fill:var(--text); }
+    .node-sublabel { font-family:'Courier New',monospace; font-size:8px; fill:var(--text-dim); }
+    .edge-label { font-family:'Courier New',monospace; font-size:8px; fill:var(--muted); }
+
+    /* ── UPDATED STAMP ── */
+    .updated-stamp {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:9px; color:var(--text-dim); letter-spacing:1px;
+      padding:3px 10px; border:1px solid var(--border); border-radius:2px;
+      background:rgba(0,200,255,0.03);
+    }
+    .updated-dot { width:5px; height:5px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
+
+    /* ── EXPORT BUTTON ── */
+    .export-btn {
+      padding:5px 14px; font-size:9px; letter-spacing:2px; font-family:'Courier New',monospace;
+      background:rgba(0,200,255,0.08); color:var(--accent);
+      border:1px solid rgba(0,200,255,0.3); border-radius:3px;
+      cursor:pointer; text-transform:uppercase; transition:all 0.2s;
+    }
+    .export-btn:hover { background:rgba(0,200,255,0.15); border-color:var(--accent); }
+
+    /* ── SETTINGS PANEL ── */
+    .settings-btn {
+      padding:5px 12px; font-size:9px; letter-spacing:2px; font-family:'Courier New',monospace;
+      background:rgba(255,215,0,0.08); color:var(--yellow);
+      border:1px solid rgba(255,215,0,0.3); border-radius:3px;
+      cursor:pointer; text-transform:uppercase; transition:all 0.2s;
+    }
+    .settings-btn:hover { background:rgba(255,215,0,0.15); }
+    .settings-overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6);
+      z-index:10000; backdrop-filter:blur(2px);
+    }
+    .settings-overlay.open { display:flex; justify-content:flex-end; }
+    .settings-drawer {
+      width:420px; background:#0a0f1e; border-left:1px solid var(--border);
+      display:flex; flex-direction:column; height:100vh; overflow:hidden;
+    }
+    .settings-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px; border-bottom:1px solid var(--border);
+      background:var(--panel);
+    }
+    .settings-header h2 { font-size:11px; letter-spacing:2px; color:var(--yellow); text-transform:uppercase; }
+    .settings-close {
+      background:none; border:1px solid var(--border); color:var(--text-dim);
+      width:24px; height:24px; border-radius:3px; cursor:pointer; font-size:12px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .settings-close:hover { border-color:var(--red); color:var(--red); }
+    .settings-body { flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:20px; }
+    .settings-section { border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+    .settings-section-hdr {
+      padding:8px 14px; background:rgba(255,255,255,0.03);
+      font-size:9px; letter-spacing:2px; color:var(--accent); text-transform:uppercase;
+      border-bottom:1px solid var(--border);
+    }
+    .settings-section-body { padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .setting-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .setting-label { font-size:10px; color:var(--text); letter-spacing:0.5px; flex:1; }
+    .setting-sub { font-size:9px; color:var(--text-dim); margin-top:2px; }
+    /* range slider */
+    .setting-range { width:120px; accent-color:var(--accent); }
+    .setting-range-val { font-size:10px; color:var(--accent); width:36px; text-align:right; font-family:'Courier New',monospace; }
+    /* toggle switch */
+    .toggle { position:relative; width:36px; height:18px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider {
+      position:absolute; inset:0; background:var(--border); border-radius:18px; cursor:pointer; transition:0.3s;
+    }
+    .toggle-slider:before {
+      content:''; position:absolute; height:12px; width:12px; left:3px; bottom:3px;
+      background:white; border-radius:50%; transition:0.3s;
+    }
+    .toggle input:checked + .toggle-slider { background:var(--accent); }
+    .toggle input:checked + .toggle-slider:before { transform:translateX(18px); }
+    /* textarea for ticker/country editing */
+    .setting-textarea {
+      width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--border);
+      color:var(--text); font-family:'Courier New',monospace; font-size:10px;
+      padding:8px; border-radius:3px; resize:vertical; min-height:80px;
+      outline:none; line-height:1.5;
+    }
+    .setting-textarea:focus { border-color:var(--accent); }
+    .setting-input {
+      background:rgba(0,0,0,0.3); border:1px solid var(--border);
+      color:var(--text); font-family:'Courier New',monospace; font-size:10px;
+      padding:5px 8px; border-radius:3px; outline:none; width:100%;
+    }
+    .setting-input:focus { border-color:var(--accent); }
+    .apply-btn {
+      padding:5px 14px; font-size:9px; letter-spacing:1px; font-family:'Courier New',monospace;
+      background:rgba(0,230,118,0.1); color:var(--green);
+      border:1px solid rgba(0,230,118,0.3); border-radius:3px;
+      cursor:pointer; text-transform:uppercase; transition:all 0.2s; align-self:flex-end;
+    }
+    .apply-btn:hover { background:rgba(0,230,118,0.2); }
+    .country-row { display:grid; grid-template-columns:80px 1fr 80px; gap:6px; align-items:center; }
+    .country-flag { font-size:16px; text-align:center; }
+    .tier-chip {
+      display:inline-block; font-size:8px; padding:1px 6px; border-radius:2px;
+      letter-spacing:1px; cursor:pointer; transition:all 0.2s;
+    }
+    .tier-chip.t1 { background:rgba(255,59,59,0.2); color:var(--red); border:1px solid rgba(255,59,59,0.4); }
+    .tier-chip.t2 { background:rgba(255,140,0,0.2); color:var(--orange); border:1px solid rgba(255,140,0,0.4); }
+    .tier-chip.t3 { background:rgba(255,215,0,0.1); color:var(--yellow); border:1px solid rgba(255,215,0,0.3); }
+    .tier-chip.off { background:rgba(74,90,122,0.2); color:var(--muted); border:1px solid var(--border); }
+
+    /* scrollbar global */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- TLP CLASSIFICATION BAR -->
+<div class="tlp-bar">
+  <div><span class="tlp-tag">TLP:WHITE</span> UNCLASSIFIED · AUTHORIZED FOR PUBLIC RELEASE · MTS CYBER OPS CENTER</div>
+  <div class="session-id">SESSION: <span id="sessionId">--</span> · ANALYST: MTS-CTI-01 · CLASSIFICATION: UNCLASSIFIED//FOUO</div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <div class="logo">⚓</div>
+    <div class="title-block">
+      <h1>MTS Cyber Ops Center</h1>
+      <p>MARINE TRANSPORTATION SYSTEM · THREAT INTELLIGENCE DASHBOARD</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="world-clocks">
+      <div class="city-clock">
+        <div class="city-label">Los Angeles</div>
+        <div class="city-time" id="clockLA">--:--:--</div>
+        <div class="city-tz">PST / UTC-8</div>
+      </div>
+      <div class="city-clock">
+        <div class="city-label">UTC / ZULU</div>
+        <div class="city-time" id="clockUTC">--:--:--</div>
+        <div class="city-tz">ZULU</div>
+      </div>
+      <div class="city-clock">
+        <div class="city-label">Tel Aviv</div>
+        <div class="city-time" id="clockTLV">--:--:--</div>
+        <div class="city-tz">IST / UTC+2</div>
+      </div>
+      <div class="city-clock">
+        <div class="city-label">Moscow</div>
+        <div class="city-time" id="clockMSK">--:--:--</div>
+        <div class="city-tz">MSK / UTC+3</div>
+      </div>
+    </div>
+    <div>
+      <div class="date-str" id="dateStr">--</div>
+    </div>
+    <div class="threat-badge threat-CRITICAL" id="threatBadge">⬤ CRITICAL</div>
+    <button class="settings-btn" onclick="document.getElementById('settingsOverlay').classList.add('open')">⚙ CONFIG</button>
+  </div>
+</header>
+
+<!-- BREAKING TICKER -->
+<div class="ticker-wrap" id="panel-ticker">
+  <div class="ticker-inner">
+    <span>🔴 BREAKING: U.S.-Israel joint strikes on Iran ongoing — Op Roaring Lion / Op Epic Fury — Day 1</span>
+    <span class="sep">///</span>
+    <span>⚠️ CISA: Pro-Iranian hacktivists targeting U.S. networks — DDoS campaigns underway</span>
+    <span class="sep">///</span>
+    <span>🔴 Iran launches ballistic missiles at Gulf Arab states hosting U.S. military assets</span>
+    <span class="sep">///</span>
+    <span>⚠️ CyberAv3ngers: Assess elevated threat to ICS/OT — exposed Unitronics PLCs at risk</span>
+    <span class="sep">///</span>
+    <span>📡 Israel largest cyberattack in history against Iran — internet drops to 4% of normal traffic</span>
+    <span class="sep">///</span>
+    <span>🔴 Iran cyber units maintained ops through domestic internet blackout — pre-positioned C2 infrastructure confirmed</span>
+    <span class="sep">///</span>
+    <span>⚠️ Google/Mandiant: China, Iran, Russia, NK coordinated defense sector operations — DIB supply chains targeted</span>
+    <span class="sep">///</span>
+    <span>📡 Ransomware.live: 26,127 total victims tracked — 1,482 in 2026 YTD</span>
+    <span class="sep">///</span>
+    <span>🚢 MarineLink, ShipUniverse, WorldMonitor — maritime-specific feeds active</span>
+    <span class="sep">///</span>
+    <span>🔬 OTX AlienVault — Iran/ICS pulse tracking enabled · ransom-db.com crosscheck active</span>
+    <span class="sep">///</span>
+    <span>🌐 Pingdom Outages — infrastructure correlation monitoring active</span>
+  </div>
+</div>
+
+<!-- OP STATUS TILES -->
+<!-- COMPACT OP STATUS + LATEST CRITICAL NEWS -->
+<div id="panel-opbanner" style="display:grid;grid-template-columns:auto 1fr;gap:1px;margin:10px 24px 0;">
+
+  <!-- Combined Op Status — compact single bar -->
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:10px 16px;display:flex;align-items:center;gap:0;min-width:380px;">
+    <div style="font-size:8px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-right:14px;white-space:nowrap;">ACTIVE OPS</div>
+    <div style="display:flex;gap:1px;flex:1;">
+      <div style="flex:1;padding:4px 10px;background:rgba(0,123,255,0.08);border-left:2px solid #0077ff;margin-right:1px;">
+        <div style="font-size:7px;letter-spacing:1px;color:#0077ff;text-transform:uppercase;">U.S. · CENTCOM</div>
+        <div style="font-size:11px;font-weight:bold;color:#0099ff;letter-spacing:1px;">OP EPIC FURY</div>
+        <div style="font-size:8px;color:var(--text-dim);">⬤ Active · Multi-day</div>
+      </div>
+      <div style="flex:1;padding:4px 10px;background:rgba(0,200,100,0.07);border-left:2px solid #00c864;margin-right:1px;">
+        <div style="font-size:7px;letter-spacing:1px;color:#00c864;text-transform:uppercase;">Israel · Unit 8200</div>
+        <div style="font-size:11px;font-weight:bold;color:#00c864;letter-spacing:1px;">OP ROARING LION</div>
+        <div style="font-size:8px;color:var(--text-dim);">⬤ Kinetic + Cyber</div>
+      </div>
+      <div style="flex:1;padding:4px 10px;background:rgba(255,59,59,0.07);border-left:2px solid var(--red);">
+        <div style="font-size:7px;letter-spacing:1px;color:var(--red);text-transform:uppercase;">Iran · IRGC/MOIS</div>
+        <div style="font-size:11px;font-weight:bold;color:var(--red);letter-spacing:1px;animation:pulse 2s infinite;">RETALIATION ACTIVE</div>
+        <div style="font-size:8px;color:var(--text-dim);">⬤ Missiles · Cyber escalation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Latest Critical News panel -->
+  <div style="background:var(--panel);border:1px solid rgba(255,59,59,0.3);border-radius:4px;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-bottom:1px solid rgba(255,59,59,0.2);background:rgba(255,59,59,0.05);">
+      <span style="font-size:9px;letter-spacing:2px;color:var(--red);text-transform:uppercase;">🔴 Latest Critical Intelligence</span>
+      <span style="font-size:8px;color:var(--text-dim);animation:pulse 1.5s infinite;">● LIVE</span>
+    </div>
+    <div id="criticalNewsPanel" style="display:flex;flex-direction:column;gap:0;">
+      <div style="padding:5px 14px;border-bottom:1px solid rgba(30,45,74,0.4);font-size:10px;color:var(--text);">🔴 U.S.-Israel joint strikes on Iran — Op Roaring Lion / Op Epic Fury ongoing <span style="color:var(--text-dim);font-size:9px;margin-left:8px;">just now</span></div>
+      <div style="padding:5px 14px;border-bottom:1px solid rgba(30,45,74,0.4);font-size:10px;color:var(--text);">⚠️ CISA: Pro-Iranian hacktivists targeting U.S. networks — DDoS campaigns active <span style="color:var(--text-dim);font-size:9px;margin-left:8px;">12m ago</span></div>
+      <div style="padding:5px 14px;font-size:10px;color:var(--text);">🔴 CyberAv3ngers: Elevated ICS/OT threat — exposed Unitronics PLCs at risk <span style="color:var(--text-dim);font-size:9px;margin-left:8px;">34m ago</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- METRICS ROW -->
+<div class="metrics" id="panel-metrics" style="margin-top:16px;">
+  <div class="metric">
+    <div class="metric-val val-red" id="metric-threat">CRIT</div>
+    <div class="metric-lbl">Threat Level</div>
+    <div class="metric-delta delta-up">↑ Elevated Feb 28</div>
+  </div>
+  <div class="metric">
+    <div class="metric-val val-orange" id="metric-alerts">—</div>
+    <div class="metric-lbl">Alerts / 24h</div>
+    <div class="metric-delta delta-up">ntfy.sh · live</div>
+  </div>
+  <div class="metric">
+    <div class="metric-val val-red" id="metric-iran-pct">4%</div>
+    <div class="metric-lbl">Iran Internet Traffic</div>
+    <div class="metric-delta delta-up">↓ Post-Israel cyber strike</div>
+  </div>
+  <div class="metric">
+    <div class="metric-val val-yellow" id="metric-ransom">—</div>
+    <div class="metric-lbl">Ransomware Victims</div>
+    <div class="metric-delta" id="metric-ytd-delta">Loading from DB…</div>
+  </div>
+  <div class="metric">
+    <div class="metric-val val-orange">133%</div>
+    <div class="metric-lbl">↑ Iranian Attacks</div>
+    <div class="metric-delta">Transport / Mfg · Nozomi</div>
+  </div>
+  <div class="metric">
+    <div class="metric-val val-blue" id="metric-sources">—/12</div>
+    <div class="metric-lbl">Sources Online</div>
+    <div class="metric-delta">10-min DB sync</div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="grid" id="panel-grid">
+
+  <!-- THREAT ACTORS — spans 2 cols -->
+  <div class="panel col-span-2" id="panel-actors">
+    <div class="panel-header">
+      <h2>🎯 Active Threat Actors</h2>
+      <span class="badge badge-live">LIVE</span>
+    </div>
+    <table class="actor-table">
+      <thead>
+        <tr>
+          <th>Actor</th>
+          <th>Severity</th>
+          <th>Primary Targets</th>
+          <th>TTPs</th>
+          <th>MTS Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="actor-name">CyberAv3ngers</div>
+            <div class="actor-country">🇮🇷 IRGC-CEC front</div>
+          </td>
+          <td><span class="sev sev-crit">CRITICAL</span></td>
+          <td style="font-size:10px;">Water, Wastewater, Energy, Transportation — Unitronics PLCs</td>
+          <td>
+            <span class="ttp-tag">T0803</span>
+            <span class="ttp-tag">T0836</span>
+            <span class="ttp-tag">T1190</span>
+          </td>
+          <td style="font-size:10px; color:var(--red);">Direct — exposed HMIs at ports/terminals</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="actor-name">Pioneer Kitten</div>
+            <div class="actor-country">🇮🇷 IRGC / Fox Kitten</div>
+          </td>
+          <td><span class="sev sev-crit">CRITICAL</span></td>
+          <td style="font-size:10px;">U.S. orgs — sells access to RansomHub, ALPHV</td>
+          <td>
+            <span class="ttp-tag">T1133</span>
+            <span class="ttp-tag">T1486</span>
+            <span class="ttp-tag">T1078</span>
+          </td>
+          <td style="font-size:10px; color:var(--red);">High — ransomware delivery via access brokering</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="actor-name">UNC1549 / Nimbus Manticore</div>
+            <div class="actor-country">🇮🇷 MOIS-affiliated</div>
+          </td>
+          <td><span class="sev sev-high">HIGH</span></td>
+          <td style="font-size:10px;">Aerospace, Defense — fake job listings, resume malware</td>
+          <td>
+            <span class="ttp-tag">T1566</span>
+            <span class="ttp-tag">T1204</span>
+            <span class="ttp-tag">T1059</span>
+          </td>
+          <td style="font-size:10px; color:var(--orange);">Moderate — DIB supply chain, defense contractors</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="actor-name">OilRig / APT34</div>
+            <div class="actor-country">🇮🇷 MOIS</div>
+          </td>
+          <td><span class="sev sev-high">HIGH</span></td>
+          <td style="font-size:10px;">Energy, Gov, Telecom — long-dwell espionage</td>
+          <td>
+            <span class="ttp-tag">T1071</span>
+            <span class="ttp-tag">T1027</span>
+            <span class="ttp-tag">T1021</span>
+          </td>
+          <td style="font-size:10px; color:var(--orange);">Moderate — port authority IT networks</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="actor-name">MuddyWater</div>
+            <div class="actor-country">🇮🇷 IRGC</div>
+          </td>
+          <td><span class="sev sev-high">HIGH</span></td>
+          <td style="font-size:10px;">Gov, Telecom, Defense — spearphish, living-off-the-land</td>
+          <td>
+            <span class="ttp-tag">T1566.001</span>
+            <span class="ttp-tag">T1105</span>
+            <span class="ttp-tag">T1053</span>
+          </td>
+          <td style="font-size:10px; color:var(--orange);">Moderate — MTSA-facility admin networks</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="actor-name">APT5 / Keyhole Panda</div>
+            <div class="actor-country">🇨🇳 MSS (Coordinated axis)</div>
+          </td>
+          <td><span class="sev sev-high">HIGH</span></td>
+          <td style="font-size:10px;">Edge devices, telecom, defense supply chain</td>
+          <td>
+            <span class="ttp-tag">T1190</span>
+            <span class="ttp-tag">T1595</span>
+            <span class="ttp-tag">T1199</span>
+          </td>
+          <td style="font-size:10px; color:var(--yellow);">Elevated — coordinated axis with Iran per Google/Mandiant</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- NTFY ALERT STATUS -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>📲 Alert System</h2>
+      <span class="badge badge-alert">NTFY.SH</span>
+    </div>
+    <div class="ntfy-block">
+      <div class="ntfy-status">
+        <div class="ntfy-dot"></div>
+        <div>
+          <div class="ntfy-label">Alert Monitor Active</div>
+          <div class="ntfy-topic">Topic: mts-cyber-alerts</div>
+        </div>
+      </div>
+      <div class="ntfy-tiers">
+        <div class="ntfy-tier">
+          <div class="ntfy-tier-dot" style="background:var(--red);"></div>
+          <span style="color:var(--red); font-weight:bold;">TIER 1 URGENT</span>
+          <span style="color:var(--text-dim); margin-left:auto;">Confirmed MTS attack, CISA ED, wiper</span>
+        </div>
+        <div class="ntfy-tier">
+          <div class="ntfy-tier-dot" style="background:var(--orange);"></div>
+          <span style="color:var(--orange); font-weight:bold;">TIER 2 HIGH</span>
+          <span style="color:var(--text-dim); margin-left:auto;">New CISA advisory, sector ransomware victim</span>
+        </div>
+        <div class="ntfy-tier">
+          <div class="ntfy-tier-dot" style="background:var(--accent);"></div>
+          <span style="color:var(--accent); font-weight:bold;">TIER 3 INFO</span>
+          <span style="color:var(--text-dim); margin-left:auto;">New TTPs, diplomatic events, hacktivist DDoS</span>
+        </div>
+      </div>
+      <div class="ntfy-setup">
+        <p>
+          📱 <strong style="color:var(--text);">Setup:</strong> Install <code>ntfy</code> app (iOS/Android) → Subscribe to topic: <code>mts-cyber-alerts</code><br/><br/>
+          🕐 <strong style="color:var(--text);">Scan Cadence:</strong> Every 60 minutes · Sources: Al Jazeera, AP, Sky News, BBC, CISA, ransomware.live<br/><br/>
+          📋 <strong style="color:var(--text);">Brief Schedule:</strong> 6:00 AM + 6:00 PM daily · Auto-runs during active conflict phase
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTELLIGENCE FEED -->
+  <div class="panel col-span-2" id="panel-feed">
+    <div class="panel-header">
+      <h2>📡 Intelligence Feed</h2>
+      <span class="badge badge-live">FEB 28 2026</span>
+    </div>
+    <div class="feed">
+      <div class="feed-item">
+        <div class="feed-dot dot-red"></div>
+        <div class="feed-content">
+          <div class="feed-headline">🇮🇱🇺🇸 Joint strikes on Iran — Op Roaring Lion + Op Epic Fury launched. "Several days of attacks" planned per CNN. Multi-province targeting: Tehran, Isfahan, Qom, Karaj, Kermanshah.</div>
+          <div class="feed-meta"><span class="feed-source">CNN / Al Jazeera</span><span>02/28/2026 · Day 1</span></div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-dot dot-red"></div>
+        <div class="feed-content">
+          <div class="feed-headline">Israel executes largest cyberattack in history concurrent with strikes — Iranian internet collapses to 4% normal traffic. IRGC comms, IRNA, Tasnim News disrupted.</div>
+          <div class="feed-meta"><span class="feed-source">NetBlocks / Jerusalem Post</span><span>02/28/2026</span></div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-dot dot-red"></div>
+        <div class="feed-content">
+          <div class="feed-headline">🇮🇷 Iran launches ballistic missiles against Gulf Arab states hosting U.S. military assets — Qatar, Kuwait, Bahrain, UAE airspace closed. 201+ killed across 24 Iranian provinces.</div>
+          <div class="feed-meta"><span class="feed-source">Al Jazeera / AP</span><span>02/28/2026</span></div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-dot dot-orange"></div>
+        <div class="feed-content">
+          <div class="feed-headline">⚠️ CRITICAL: Iran cyber units maintained operations through domestic internet blackout. Pre-positioned C2 infrastructure and out-of-band exfil paths confirmed — Bloomberg.</div>
+          <div class="feed-meta"><span class="feed-source">Bloomberg</span><span>02/25/2026</span></div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-dot dot-orange"></div>
+        <div class="feed-content">
+          <div class="feed-headline">DHS advisory: Low-level cyberattacks targeting U.S. networks from pro-Iranian hacktivists. State-directed destructive ops expected 2–4 weeks behind hacktivist surge.</div>
+          <div class="feed-meta"><span class="feed-source">DHS / CISA</span><span>02/28/2026</span></div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-dot dot-orange"></div>
+        <div class="feed-content">
+          <div class="feed-headline">Google/Mandiant: China, Iran, Russia, North Korea formally linked to coordinated defense sector operations targeting battlefield management and supply chains.</div>
+          <div class="feed-meta"><span class="feed-source">The Hacker News / Google TAG</span><span>02/13/2026</span></div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-dot dot-yellow"></div>
+        <div class="feed-content">
+          <div class="feed-headline">Nozomi Networks: 133% spike in Iranian cyberattacks targeting U.S. transportation and manufacturing sectors — May–June 2025. Pattern consistent with pre-conflict positioning.</div>
+          <div class="feed-meta"><span class="feed-source">Nozomi Networks / Industrial Cyber</span><span>Prior 90d</span></div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-dot dot-blue"></div>
+        <div class="feed-content">
+          <div class="feed-headline">Shin Bet: Hundreds of Iranian cyberattacks against Israeli government officials, defense, academics, journalists detected and foiled in months preceding strikes.</div>
+          <div class="feed-meta"><span class="feed-source">Haaretz / Times of Israel</span><span>02/12/2026</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RANSOMWARE LIVE -->
+  <div class="panel" id="panel-ransom">
+    <div class="panel-header">
+      <h2>💀 Ransomware.live</h2>
+      <span class="badge badge-feed">LIVE FEED</span>
+    </div>
+    <div class="ransom-list">
+      <div class="ransom-item">
+        <div>
+          <div class="ransom-group">Nightspire</div>
+          <div style="font-size:9px;color:var(--text-dim);">Active · Multiple sectors</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="ransom-count">↑ Active</div>
+          <div class="ransom-bar-wrap"><div class="ransom-bar" style="width:90%;"></div></div>
+        </div>
+      </div>
+      <div class="ransom-item">
+        <div>
+          <div class="ransom-group">Incransom</div>
+          <div style="font-size:9px;color:var(--red);">⚠️ Claimed 400GB NATO/U.S. Army data</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="ransom-count" style="color:var(--red);">CRITICAL</div>
+          <div class="ransom-bar-wrap"><div class="ransom-bar" style="width:95%;background:var(--red);"></div></div>
+        </div>
+      </div>
+      <div class="ransom-item">
+        <div>
+          <div class="ransom-group">RansomHub</div>
+          <div style="font-size:9px;color:var(--red);">⚠️ Pioneer Kitten nexus (IRGC)</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="ransom-count">↑ Watch</div>
+          <div class="ransom-bar-wrap"><div class="ransom-bar" style="width:80%;"></div></div>
+        </div>
+      </div>
+      <div class="ransom-item">
+        <div>
+          <div class="ransom-group">Thegentlemen</div>
+          <div style="font-size:9px;color:var(--text-dim);">Active · Multi-sector</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="ransom-count">Active</div>
+          <div class="ransom-bar-wrap"><div class="ransom-bar" style="width:60%;"></div></div>
+        </div>
+      </div>
+      <div class="ransom-item">
+        <div>
+          <div class="ransom-group">Vect</div>
+          <div style="font-size:9px;color:var(--text-dim);">Active · Trending</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="ransom-count">Active</div>
+          <div class="ransom-bar-wrap"><div class="ransom-bar" style="width:50%;"></div></div>
+        </div>
+      </div>
+      <div class="ransom-item" style="background:rgba(255,59,59,0.05);">
+        <div style="font-size:10px; color:var(--text-dim);">Total tracked victims</div>
+        <div style="font-size:14px; font-weight:bold; color:var(--orange);">26,127</div>
+      </div>
+      <div class="ransom-item">
+        <div style="font-size:10px; color:var(--text-dim);">2026 YTD</div>
+        <div style="font-size:14px; font-weight:bold; color:var(--yellow);">1,482</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /grid -->
+
+<!-- MTS SECTOR RISK -->
+<div id="panel-sector" style="padding: 0 24px 16px;">
+  <div class="panel">
+    <div class="panel-header">
+      <h2>⚓ MTS Sector Risk Matrix</h2>
+      <span class="badge badge-live">CURRENT POSTURE</span>
+    </div>
+    <div class="sector-grid">
+      <div class="sector-tile">
+        <div class="sector-icon">🏗️</div>
+        <div class="sector-name">Port Facilities</div>
+        <div class="sector-risk risk-crit">CRITICAL</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">Exposed HMIs · OT/ICS · Crane SCADA</div>
+      </div>
+      <div class="sector-tile">
+        <div class="sector-icon">🚢</div>
+        <div class="sector-name">Vessel Operators</div>
+        <div class="sector-risk risk-high">HIGH</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">ECDIS, GPS spoofing, SATCOM</div>
+      </div>
+      <div class="sector-tile">
+        <div class="sector-icon">🏭</div>
+        <div class="sector-name">Terminal Operators</div>
+        <div class="sector-risk risk-crit">CRITICAL</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">TOS, Unitronics PLCs, SCADA</div>
+      </div>
+      <div class="sector-tile">
+        <div class="sector-icon">⚓</div>
+        <div class="sector-name">MTSA Facilities</div>
+        <div class="sector-risk risk-high">HIGH</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">Access control, IT/OT convergence</div>
+      </div>
+      <div class="sector-tile">
+        <div class="sector-icon">🛢️</div>
+        <div class="sector-name">Offshore Energy</div>
+        <div class="sector-risk risk-crit">CRITICAL</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">DCS, wellhead control, SCADA</div>
+      </div>
+      <div class="sector-tile">
+        <div class="sector-icon">🌉</div>
+        <div class="sector-name">Bridges / Locks</div>
+        <div class="sector-risk risk-high">HIGH</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">Remote control systems</div>
+      </div>
+      <div class="sector-tile">
+        <div class="sector-icon">🚛</div>
+        <div class="sector-name">Maritime Logistics</div>
+        <div class="sector-risk risk-high">HIGH</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">Ransomware via Pioneer Kitten</div>
+      </div>
+      <div class="sector-tile">
+        <div class="sector-icon">🏛️</div>
+        <div class="sector-name">USCG / COTP</div>
+        <div class="sector-risk risk-med">ELEVATED</div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px;">Coordination; monitor sector alerts</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMMEDIATE ACTIONS -->
+<div style="padding: 0 24px 16px;">
+  <div class="panel">
+    <div class="panel-header">
+      <h2>⚡ Immediate Actions — NIST CSF 2.0 / CISA CPG Aligned</h2>
+      <span class="badge badge-alert">PRIORITY ORDER</span>
+    </div>
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:8px 14px;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);letter-spacing:1px;text-transform:uppercase;">Priority</th>
+          <th style="text-align:left;padding:8px 14px;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);letter-spacing:1px;text-transform:uppercase;">Action</th>
+          <th style="text-align:left;padding:8px 14px;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);letter-spacing:1px;text-transform:uppercase;">CSF Function</th>
+          <th style="text-align:left;padding:8px 14px;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);letter-spacing:1px;text-transform:uppercase;">Timeline</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:9px 14px;"><span style="color:var(--red);font-weight:bold;">P1</span></td>
+          <td style="padding:9px 14px;font-size:11px;">Audit and disconnect internet-exposed OT/ICS assets — especially Unitronics PLCs, any HMI with public-facing access</td>
+          <td style="padding:9px 14px;"><span class="ttp-tag">PROTECT</span></td>
+          <td style="padding:9px 14px;font-size:10px;color:var(--red);">TODAY</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;"><span style="color:var(--red);font-weight:bold;">P1</span></td>
+          <td style="padding:9px 14px;font-size:11px;">Validate IR contacts with CISA (1-888-282-0870) and your USCG COTP — ensure reporting path is tested and active</td>
+          <td style="padding:9px 14px;"><span class="ttp-tag">RESPOND</span></td>
+          <td style="padding:9px 14px;font-size:10px;color:var(--red);">TODAY</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;"><span style="color:var(--orange);font-weight:bold;">P2</span></td>
+          <td style="padding:9px 14px;font-size:11px;">Elevate monitoring on VPN and remote access — Iranian actors exploit Valid Accounts (T1078) and External Remote Services (T1133) as primary initial access</td>
+          <td style="padding:9px 14px;"><span class="ttp-tag">DETECT</span></td>
+          <td style="padding:9px 14px;font-size:10px;color:var(--orange);">48 HOURS</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;"><span style="color:var(--orange);font-weight:bold;">P2</span></td>
+          <td style="padding:9px 14px;font-size:11px;">Block known Iranian C2 IOCs — reference CISA AA24-241a, AA23-335a for current indicator lists. Prioritize Fortinet, Cisco, NetScaler CVEs used by Pioneer Kitten</td>
+          <td style="padding:9px 14px;"><span class="ttp-tag">PROTECT</span></td>
+          <td style="padding:9px 14px;font-size:10px;color:var(--orange);">48 HOURS</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;"><span style="color:var(--yellow);font-weight:bold;">P3</span></td>
+          <td style="padding:9px 14px;font-size:11px;">Validate offline, tested backups for all OT historian, TOS, and critical IT systems. Ransomware (T1486) via Pioneer Kitten access brokering is the most likely destructive path for MTS operators</td>
+          <td style="padding:9px 14px;"><span class="ttp-tag">RECOVER</span></td>
+          <td style="padding:9px 14px;font-size:10px;color:var(--yellow);">72 HOURS</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SOURCE STATUS PANEL -->
+<div id="panel-sources" style="padding: 0 24px 16px;">
+  <div class="panel">
+    <div class="panel-header">
+      <h2>📡 Source Monitor — 12 Feeds Active</h2>
+      <span class="badge badge-live">AUTO-SCAN · HOURLY</span>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:1px; padding:14px;">
+
+      <!-- NEWS TIER -->
+      <div style="grid-column:span 4; font-size:9px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; padding:4px 0 8px;">TIER 1 — BREAKING NEWS</div>
+
+      <div style="border:1px solid var(--border); border-radius:4px; padding:10px 12px;">
+        <div style="font-size:11px; color:var(--text); font-weight:bold;">📺 Al Jazeera</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">RSS + Search · Middle East focus</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://www.aljazeera.com" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">aljazeera.com ↗</a>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:4px; padding:10px 12px;">
+        <div style="font-size:11px; color:var(--text); font-weight:bold;">📺 BBC News</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">RSS + Search · Global coverage</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://www.bbc.com/news" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">bbc.com ↗</a>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:4px; padding:10px 12px;">
+        <div style="font-size:11px; color:var(--text); font-weight:bold;">📰 AP News</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">RSS + Wire · Authoritative sourcing</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://apnews.com" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">apnews.com ↗</a>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:4px; padding:10px 12px;">
+        <div style="font-size:11px; color:var(--text); font-weight:bold;">📺 Sky News</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">RSS + Search · UK/global breaking</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://news.sky.com" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">skynews.com ↗</a>
+      </div>
+
+      <!-- MARITIME TIER -->
+      <div style="grid-column:span 4; font-size:9px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; padding:12px 0 8px;">TIER 2 — MARITIME INTELLIGENCE</div>
+
+      <div style="border:1px solid rgba(0,200,255,0.3); border-radius:4px; padding:10px 12px; background:rgba(0,200,255,0.03);">
+        <div style="font-size:11px; color:var(--accent); font-weight:bold;">⚓ MarineLink</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Maritime industry news · Cyber incidents · Port ops</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://www.marinelink.com" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">marinelink.com ↗</a>
+      </div>
+
+      <div style="border:1px solid rgba(0,200,255,0.3); border-radius:4px; padding:10px 12px; background:rgba(0,200,255,0.03);">
+        <div style="font-size:11px; color:var(--accent); font-weight:bold;">🌍 World Monitor</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Vessel tracking · Maritime incident alerts · AIS</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://worldmonitor.app" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">worldmonitor.app ↗</a>
+      </div>
+
+      <div style="border:1px solid rgba(0,200,255,0.3); border-radius:4px; padding:10px 12px; background:rgba(0,200,255,0.03);">
+        <div style="font-size:11px; color:var(--accent); font-weight:bold;">🚢 Ship Universe</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Maritime security · Shipping industry cyber</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://www.shipuniverse.com" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">shipuniverse.com ↗</a>
+      </div>
+
+      <!-- PLACEHOLDER for 4th maritime tile — balanced grid -->
+      <div style="border:1px solid rgba(30,45,74,0.4); border-radius:4px; padding:10px 12px; opacity:0.4;">
+        <div style="font-size:11px; color:var(--text-dim); font-weight:bold;">+ Add Source</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Slot available for additional maritime feed</div>
+      </div>
+
+      <!-- THREAT INTEL TIER -->
+      <div style="grid-column:span 4; font-size:9px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; padding:12px 0 8px;">TIER 3 — THREAT INTELLIGENCE</div>
+
+      <div style="border:1px solid rgba(255,140,0,0.3); border-radius:4px; padding:10px 12px; background:rgba(255,140,0,0.03);">
+        <div style="font-size:11px; color:var(--orange); font-weight:bold;">🔬 OTX AlienVault</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Iran/ICS/maritime pulses · IOC feeds · Open CTI</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active · Pulse scan: Iran + ICS</div>
+        <a href="https://otx.alienvault.com/browse/pulses?q=iran&sort=-modified" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">otx.alienvault.com ↗</a>
+      </div>
+
+      <div style="border:1px solid rgba(255,59,59,0.3); border-radius:4px; padding:10px 12px; background:rgba(255,59,59,0.03);">
+        <div style="font-size:11px; color:var(--red); font-weight:bold;">💀 ransom-db.com</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Ransomware victim DB · MTS/transport filter active</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active · Iranian-nexus flag ON</div>
+        <a href="https://ransom-db.com" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">ransom-db.com ↗</a>
+      </div>
+
+      <div style="border:1px solid rgba(255,59,59,0.3); border-radius:4px; padding:10px 12px; background:rgba(255,59,59,0.03);">
+        <div style="font-size:11px; color:var(--red); font-weight:bold;">💀 Ransomware.live</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Live victim feed · Crosscheck with ransom-db</div>
+        <div style="font-size:9px; color:var(--orange); margin-top:5px;">⬤ Active · 26,127 tracked</div>
+        <a href="https://www.ransomware.live" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">ransomware.live ↗</a>
+      </div>
+
+      <div style="border:1px solid rgba(255,215,0,0.3); border-radius:4px; padding:10px 12px; background:rgba(255,215,0,0.03);">
+        <div style="font-size:11px; color:var(--yellow); font-weight:bold;">🏛️ CISA Advisories</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">ICS-CERT · Emergency Directives · Iran advisories</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active</div>
+        <a href="https://www.cisa.gov/news-events/cybersecurity-advisories" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">cisa.gov ↗</a>
+      </div>
+
+      <!-- INFRA TIER -->
+      <div style="grid-column:span 4; font-size:9px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; padding:12px 0 8px;">TIER 4 — INFRASTRUCTURE CORRELATION</div>
+
+      <div style="border:1px solid rgba(0,230,118,0.3); border-radius:4px; padding:10px 12px; background:rgba(0,230,118,0.03); grid-column:span 2;">
+        <div style="font-size:11px; color:var(--green); font-weight:bold;">🌐 Pingdom Global Outages</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Real-time outage correlation · Maritime / energy / Middle East infrastructure · Flags outages coinciding with known threat actor campaigns</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active · Correlation engine: ON</div>
+        <a href="https://www.pingdom.com/outages/" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">pingdom.com/outages ↗</a>
+      </div>
+
+      <div style="border:1px solid rgba(0,200,255,0.2); border-radius:4px; padding:10px 12px; background:rgba(0,200,255,0.02); grid-column:span 2;">
+        <div style="font-size:11px; color:var(--text); font-weight:bold;">📲 ntfy.sh Alert Channel</div>
+        <div style="font-size:9px; color:var(--text-dim); margin-top:3px;">Push notification delivery · Topic: mts-cyber-alerts · Tier 1/2/3 routing · Hourly scan cadence</div>
+        <div style="font-size:9px; color:var(--green); margin-top:5px;">⬤ Active · Next scan in &lt;60 min</div>
+        <a href="https://ntfy.sh" target="_blank" style="font-size:9px; color:var(--accent); text-decoration:none;">ntfy.sh ↗</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MITRE + GRAPH ROW -->
+<div id="panel-mitre-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1px;padding:0 24px 16px;">
+
+  <!-- MITRE ATT&CK HEATMAP -->
+  <div class="panel" id="panel-mitre">
+    <div class="panel-header">
+      <h2>⚔️ MITRE ATT&CK · Active Techniques</h2>
+      <span class="badge badge-alert" id="mitre-active-count">-- ACTIVE</span>
+    </div>
+    <div class="mitre-grid" id="mitreGrid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- THREAT ACTOR RELATIONSHIP GRAPH -->
+  <div class="panel" id="panel-graph">
+    <div class="panel-header">
+      <h2>🕸️ Threat Actor Relationship Graph</h2>
+      <span class="badge badge-live">LIVE</span>
+    </div>
+    <div class="graph-wrap">
+      <svg id="relationGraph" viewBox="0 0 520 220" xmlns="http://www.w3.org/2000/svg">
+        <!-- Edges -->
+        <defs>
+          <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 z" fill="#4a5a7a"/>
+          </marker>
+          <marker id="arr-red" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 z" fill="#ff3b3b"/>
+          </marker>
+        </defs>
+        <!-- IRAN → proxies -->
+        <line x1="260" y1="40" x2="100" y2="100" stroke="#ff3b3b" stroke-width="1.5" marker-end="url(#arr-red)" opacity="0.7"/>
+        <line x1="260" y1="40" x2="200" y2="100" stroke="#ff3b3b" stroke-width="1.5" marker-end="url(#arr-red)" opacity="0.7"/>
+        <line x1="260" y1="40" x2="320" y2="100" stroke="#ff3b3b" stroke-width="1.5" marker-end="url(#arr-red)" opacity="0.7"/>
+        <line x1="260" y1="40" x2="420" y2="100" stroke="#ff8c00" stroke-width="1" marker-end="url(#arr)" opacity="0.6"/>
+        <!-- proxies → MTS targets -->
+        <line x1="100" y1="120" x2="80"  y2="175" stroke="#4a5a7a" stroke-width="1" marker-end="url(#arr)" opacity="0.5"/>
+        <line x1="200" y1="120" x2="180" y2="175" stroke="#4a5a7a" stroke-width="1" marker-end="url(#arr)" opacity="0.5"/>
+        <line x1="320" y1="120" x2="300" y2="175" stroke="#4a5a7a" stroke-width="1" marker-end="url(#arr)" opacity="0.5"/>
+        <line x1="420" y1="120" x2="420" y2="175" stroke="#4a5a7a" stroke-width="1" marker-end="url(#arr)" opacity="0.5"/>
+
+        <!-- IRAN node -->
+        <circle cx="260" cy="30" r="22" fill="rgba(255,59,59,0.15)" stroke="#ff3b3b" stroke-width="1.5"/>
+        <text x="260" y="27" text-anchor="middle" class="node-label" fill="#ff3b3b" font-weight="bold">🇮🇷 IRAN</text>
+        <text x="260" y="40" text-anchor="middle" class="node-sublabel">MOIS / IRGC-CEC</text>
+
+        <!-- Proxy nodes -->
+        <circle cx="100" cy="110" r="18" fill="rgba(255,59,59,0.1)" stroke="#ff3b3b" stroke-width="1"/>
+        <text x="100" y="107" text-anchor="middle" class="node-label" fill="#ff6b6b" font-size="9">CyberAv3ngers</text>
+        <text x="100" y="119" text-anchor="middle" class="node-sublabel">ICS/OT · PLCs</text>
+
+        <circle cx="200" cy="110" r="18" fill="rgba(255,59,59,0.1)" stroke="#ff8c00" stroke-width="1"/>
+        <text x="200" y="107" text-anchor="middle" class="node-label" fill="#ff8c00" font-size="9">Pioneer Kitten</text>
+        <text x="200" y="119" text-anchor="middle" class="node-sublabel">Ransomware</text>
+
+        <circle cx="320" cy="110" r="18" fill="rgba(255,59,59,0.1)" stroke="#ff8c00" stroke-width="1"/>
+        <text x="320" y="107" text-anchor="middle" class="node-label" fill="#ff8c00" font-size="9">OilRig/APT34</text>
+        <text x="320" y="119" text-anchor="middle" class="node-sublabel">Espionage</text>
+
+        <circle cx="420" cy="110" r="18" fill="rgba(255,215,0,0.08)" stroke="#ffd700" stroke-width="1"/>
+        <text x="420" y="107" text-anchor="middle" class="node-label" fill="#ffd700" font-size="9">MuddyWater</text>
+        <text x="420" y="119" text-anchor="middle" class="node-sublabel">Phishing</text>
+
+        <!-- MTS Target nodes -->
+        <rect x="30"  y="175" width="90" height="22" rx="3" fill="rgba(0,200,255,0.07)" stroke="#1e2d4a"/>
+        <text x="75"  y="190" text-anchor="middle" class="node-sublabel" fill="#00c8ff">⚓ Port OT/ICS</text>
+
+        <rect x="130" y="175" width="90" height="22" rx="3" fill="rgba(0,200,255,0.07)" stroke="#1e2d4a"/>
+        <text x="175" y="190" text-anchor="middle" class="node-sublabel" fill="#00c8ff">🚢 Vessel ECDIS</text>
+
+        <rect x="250" y="175" width="90" height="22" rx="3" fill="rgba(0,200,255,0.07)" stroke="#1e2d4a"/>
+        <text x="295" y="190" text-anchor="middle" class="node-sublabel" fill="#00c8ff">🛢️ Energy Infra</text>
+
+        <rect x="370" y="175" width="90" height="22" rx="3" fill="rgba(0,200,255,0.07)" stroke="#1e2d4a"/>
+        <text x="415" y="190" text-anchor="middle" class="node-sublabel" fill="#00c8ff">📡 Comms/SATCOM</text>
+
+        <!-- Legend -->
+        <line x1="10" y1="210" x2="30" y2="210" stroke="#ff3b3b" stroke-width="1.5"/>
+        <text x="34" y="214" class="node-sublabel" fill="#ff3b3b">State-directed</text>
+        <line x1="110" y1="210" x2="130" y2="210" stroke="#4a5a7a" stroke-width="1"/>
+        <text x="134" y="214" class="node-sublabel">Proxy→Target</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div>MTS CYBER OPS CENTER v2 · TLP:WHITE · 12 SOURCES ACTIVE · UNCLASSIFIED // FOR OFFICIAL USE</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="updated-stamp">
+      <div class="updated-dot"></div>
+      <span id="footerTime">UPDATED: --</span>
+      <span style="color:var(--border)">|</span>
+      <span id="nextRefresh">NEXT: --</span>
+    </div>
+    <button class="export-btn" onclick="window.mtsPrint()">⬇ EXPORT BRIEF</button>
+  </div>
+  <div>
+    <a href="https://www.cisa.gov" target="_blank">CISA</a> ·
+    <a href="https://www.ransomware.live" target="_blank">ransomware.live</a> ·
+    <a href="https://otx.alienvault.com" target="_blank">OTX</a> ·
+    <a href="https://www.marinelink.com" target="_blank">MarineLink</a> ·
+    <a href="https://ntfy.sh" target="_blank">ntfy.sh</a>
+  </div>
+</footer>
+
+<!-- SETTINGS OVERLAY DRAWER -->
+<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="settings-drawer">
+    <div class="settings-header">
+      <h2>⚙ Dashboard Configuration</h2>
+      <button class="settings-close" onclick="document.getElementById('settingsOverlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <!-- TICKER CONTROLS -->
+      <div class="settings-section">
+        <div class="settings-section-hdr">📡 Ticker Tape</div>
+        <div class="settings-section-body">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Scroll Speed</div>
+              <div class="setting-sub">Lower = faster</div>
+            </div>
+            <input type="range" class="setting-range" id="tickerSpeed" min="10" max="120" value="40" oninput="applyTickerSpeed(this.value)">
+            <span class="setting-range-val" id="tickerSpeedVal">40s</span>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Ticker Visible</div>
+              <div class="setting-sub">Show/hide breaking news bar</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="tickerVisible" checked onchange="toggleTicker(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div>
+            <div class="setting-label" style="margin-bottom:6px;">Edit Ticker Items <span style="color:var(--text-dim);font-size:9px;">(one item per line)</span></div>
+            <textarea class="setting-textarea" id="tickerContent" rows="6">🔴 BREAKING: U.S.-Israel joint strikes on Iran ongoing — Op Roaring Lion / Op Epic Fury — Day 1
+⚠️ CISA: Pro-Iranian hacktivists targeting U.S. networks — DDoS campaigns underway
+🔴 Iran launches ballistic missiles at Gulf Arab states hosting U.S. military assets
+⚠️ CyberAv3ngers: Elevated threat to ICS/OT — exposed Unitronics PLCs at risk
+📡 Israel largest cyberattack in history against Iran — internet drops to 4% of normal traffic
+🔴 Iran cyber units maintained ops through domestic internet blackout — pre-positioned C2 confirmed
+⚠️ Google/Mandiant: China, Iran, Russia, NK coordinated defense sector operations
+📡 Ransomware.live: 26,127 total victims tracked — 1,482 in 2026 YTD
+🚢 MarineLink, ShipUniverse, WorldMonitor — maritime-specific feeds active</textarea>
+            <button class="apply-btn" style="margin-top:8px;" onclick="applyTickerContent()">↩ Apply Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL VISIBILITY -->
+      <div class="settings-section">
+        <div class="settings-section-hdr">🗂 Panel Visibility</div>
+        <div class="settings-section-body">
+          <div class="setting-row">
+            <div class="setting-label">Threat Feed</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-feed',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">Metrics Row</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-metrics',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">Ransomware Panel</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-ransom',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">Threat Actor Table</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-actors',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">MTS Sector Risk Matrix</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-sector',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">MITRE ATT&CK Heatmap</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-mitre',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">Relationship Graph</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-graph',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">Source Monitor</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-sources',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">Op Status Banner</div>
+            <label class="toggle"><input type="checkbox" checked onchange="togglePanel('panel-opbanner',this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- COUNTRY DATA POINTS -->
+      <div class="settings-section">
+        <div class="settings-section-hdr">🌐 Country Data Points — Threat Tier</div>
+        <div class="settings-section-body" id="countryConfig">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <!-- WORLD CLOCKS -->
+      <div class="settings-section">
+        <div class="settings-section-hdr">🕐 World Clock Cities</div>
+        <div class="settings-section-body">
+          <div class="setting-row">
+            <div class="setting-label">City 1 (Left)</div>
+            <select class="setting-input" style="width:160px;" onchange="updateCityTz(0,this.value)" id="citySelect0">
+              <option value="America/Los_Angeles" selected>Los Angeles (PST)</option>
+              <option value="America/New_York">New York (EST)</option>
+              <option value="America/Chicago">Chicago (CST)</option>
+              <option value="Europe/London">London (GMT)</option>
+              <option value="Europe/Paris">Paris (CET)</option>
+              <option value="Asia/Dubai">Dubai (GST)</option>
+              <option value="Asia/Tehran">Tehran (IRST)</option>
+              <option value="Asia/Jerusalem">Tel Aviv (IST)</option>
+              <option value="Europe/Moscow">Moscow (MSK)</option>
+              <option value="Asia/Shanghai">Beijing (CST)</option>
+              <option value="Asia/Tokyo">Tokyo (JST)</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">City 3 (Tel Aviv)</div>
+            <select class="setting-input" style="width:160px;" onchange="updateCityTz(2,this.value)" id="citySelect2">
+              <option value="America/Los_Angeles">Los Angeles (PST)</option>
+              <option value="America/New_York">New York (EST)</option>
+              <option value="Europe/London">London (GMT)</option>
+              <option value="Europe/Paris">Paris (CET)</option>
+              <option value="Asia/Dubai">Dubai (GST)</option>
+              <option value="Asia/Tehran">Tehran (IRST)</option>
+              <option value="Asia/Jerusalem" selected>Tel Aviv (IST)</option>
+              <option value="Europe/Moscow">Moscow (MSK)</option>
+              <option value="Asia/Shanghai">Beijing (CST)</option>
+              <option value="Asia/Tokyo">Tokyo (JST)</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">City 4 (Moscow)</div>
+            <select class="setting-input" style="width:160px;" onchange="updateCityTz(3,this.value)" id="citySelect3">
+              <option value="America/Los_Angeles">Los Angeles (PST)</option>
+              <option value="America/New_York">New York (EST)</option>
+              <option value="Europe/London">London (GMT)</option>
+              <option value="Europe/Paris">Paris (CET)</option>
+              <option value="Asia/Dubai">Dubai (GST)</option>
+              <option value="Asia/Tehran">Tehran (IRST)</option>
+              <option value="Asia/Jerusalem">Tel Aviv (IST)</option>
+              <option value="Europe/Moscow" selected>Moscow (MSK)</option>
+              <option value="Asia/Shanghai">Beijing (CST)</option>
+              <option value="Asia/Tokyo">Tokyo (JST)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- POLL INTERVAL -->
+      <div class="settings-section">
+        <div class="settings-section-hdr">🔄 Data Refresh Interval</div>
+        <div class="settings-section-body">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Poll Supabase Every</div>
+              <div class="setting-sub">Minimum 5 min recommended</div>
+            </div>
+            <select class="setting-input" style="width:120px;" id="pollSelect" onchange="applyPollInterval(this.value)">
+              <option value="300000">5 min</option>
+              <option value="600000" selected>10 min</option>
+              <option value="900000">15 min</option>
+              <option value="1800000">30 min</option>
+              <option value="3600000">60 min</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /settings-body -->
+  </div><!-- /settings-drawer -->
+</div><!-- /settings-overlay -->
+
+<script type="module">
+  // ── SUPABASE CONFIG ─────────────────────────────────────────────────────────
+  // Replace these two values with your project's URL and anon (public) key.
+  // These are safe to embed — anon key is read-only by RLS policy.
+  const SUPABASE_URL  = 'https://ifrlixhrtaesthtxjdyh.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmcmxpeGhydGFlc3RodHhqZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDcxOTYsImV4cCI6MjA4Nzg4MzE5Nn0.eeH6RLyCcI4hbB5afbKr8osmqtgfG5wFGeoTxi8iKYM';
+
+  const POLL_INTERVAL_MS = 10 * 60 * 1000;  // 10 minutes
+  let   lastFetchAt      = null;
+
+  // ── CLOCK ────────────────────────────────────────────────────────────────────
+  // Session ID
+  const sid = 'MTS-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+  document.getElementById('sessionId').textContent = sid;
+
+  function updateClock() {
+    const now = new Date();
+    const fmt = (tz) => now.toLocaleTimeString('en-GB', {hour12: false, timeZone: tz});
+    document.getElementById('clockLA').textContent  = fmt('America/Los_Angeles');
+    document.getElementById('clockUTC').textContent = fmt('UTC');
+    document.getElementById('clockTLV').textContent = fmt('Asia/Jerusalem');
+    document.getElementById('clockMSK').textContent = fmt('Europe/Moscow');
+    document.getElementById('dateStr').textContent =
+      now.toLocaleDateString('en-US', {weekday:'short', year:'numeric', month:'short', day:'numeric'}).toUpperCase() + ' · UTC ' +
+      now.toLocaleTimeString('en-GB', {hour12: false, timeZone: 'UTC'});
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── SUPABASE FETCH HELPERS ───────────────────────────────────────────────────
+  async function sbGet(table, params = '') {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/${table}?${params}`,
+      { headers: {
+          'apikey':        SUPABASE_ANON,
+          'Authorization': `Bearer ${SUPABASE_ANON}`,
+          'Prefer':        'count=exact'
+      }}
+    );
+    if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
+    const count = parseInt(r.headers.get('content-range')?.split('/')[1] || '0');
+    const data  = await r.json();
+    return { data, count };
+  }
+
+  // ── RENDER: THREAT FEED ──────────────────────────────────────────────────────
+  function tierDot(tier) {
+    return tier === 1 ? 'dot-red' : tier === 2 ? 'dot-orange' : 'dot-yellow';
+  }
+  function tierIcon(tier) {
+    return tier === 1 ? '🔴' : tier === 2 ? '⚠️' : '📡';
+  }
+
+  function renderFeed(items) {
+    const container = document.querySelector('.feed');
+    if (!container) return;
+    if (!items || items.length === 0) return;
+
+    const tier1Items = items.filter(i => i.tier === 1);
+    if (tier1Items.length > lastTier1Count) { playAlertTone(); }
+    lastTier1Count = tier1Items.length;
+
+    container.innerHTML = items.map(item => `
+      <div class="feed-item">
+        <div class="feed-dot ${tierDot(item.tier)}"></div>
+        <div class="feed-content">
+          <div class="feed-headline">
+            ${tierIcon(item.tier)}
+            ${item.mts_relevant ? '⚓ ' : ''}
+            ${escHtml(item.headline)}
+          </div>
+          <div class="feed-meta">
+            <span class="feed-source">${escHtml(item.source)}</span>
+            <span>${formatAge(item.created_at)}</span>
+            ${item.iran_nexus ? '<span style="color:var(--red)">🇮🇷 Iran nexus</span>' : ''}
+            ${confBarHtml(item.tier)}
+            ${item.url ? `<a href="${escHtml(item.url)}" target="_blank" style="color:var(--accent);text-decoration:none;">↗ source</a>` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── RENDER: CRITICAL NEWS (Tier 1 items → compact op banner panel) ───────────
+  function renderCriticalNews(items) {
+    const panel = document.getElementById('criticalNewsPanel');
+    if (!panel || !items?.length) return;
+    const t1 = items.filter(i => i.tier === 1).slice(0, 4);
+    if (!t1.length) return;
+    panel.innerHTML = t1.map(item => `
+      <div style="padding:5px 14px;border-bottom:1px solid rgba(30,45,74,0.4);font-size:10px;color:var(--text);display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+        <span>🔴 ${escHtml(item.headline)}</span>
+        <span style="color:var(--text-dim);font-size:9px;white-space:nowrap;">${formatAge(item.created_at)}</span>
+      </div>
+    `).join('');
+  }
+
+  // ── RENDER: METRICS ──────────────────────────────────────────────────────────
+  function renderMetrics(snapshot, ransom_total, ransom_ytd, alert_24h) {
+    setMetric('metric-threat',   snapshot?.threat_level || 'CRITICAL',  'val-red');
+    setMetric('metric-ransom',   ransom_total || '—',                    'val-yellow');
+    setMetric('metric-ytd',      ransom_ytd   || '—',                    'val-orange');
+    setMetric('metric-alerts',   alert_24h    || '0',                    'val-orange');
+    setMetric('metric-iran-pct', (snapshot?.iran_internet_pct ?? 4) + '%', 'val-red');
+    setMetric('metric-sources',  (snapshot?.sources_checked ?? 12) + '/12', 'val-blue');
+  }
+
+  function setMetric(id, value, cls) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
+    el.className   = `metric-val ${cls}`;
+  }
+
+  // ── RENDER: RANSOMWARE PANEL ─────────────────────────────────────────────────
+  function renderRansomware(victims) {
+    const container = document.querySelector('.ransom-list');
+    if (!container || !victims?.length) return;
+
+    // Group by group_name
+    const groups = {};
+    victims.forEach(v => {
+      groups[v.group_name] = (groups[v.group_name] || 0) + 1;
+    });
+    const sorted = Object.entries(groups).sort((a,b) => b[1] - a[1]).slice(0, 8);
+    const max    = sorted[0]?.[1] || 1;
+
+    const mts_hits   = victims.filter(v => v.mts_relevant);
+    const iran_hits  = victims.filter(v => v.iran_nexus);
+
+    container.innerHTML = sorted.map(([grp, cnt]) => {
+      const pct      = Math.round((cnt / max) * 100);
+      const isIran   = IRAN_NEXUS_GROUPS_JS.some(ig => grp.toLowerCase().includes(ig));
+      return `
+        <div class="ransom-item">
+          <div>
+            <div class="ransom-group">${escHtml(grp)}</div>
+            ${isIran ? '<div style="font-size:9px;color:var(--red);">⚠️ Iranian-nexus</div>' : ''}
+          </div>
+          <div style="text-align:right;">
+            <div class="ransom-count">${cnt}</div>
+            <div class="ransom-bar-wrap">
+              <div class="ransom-bar" style="width:${pct}%;${isIran ? 'background:var(--red);' : ''}"></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('') + `
+      ${mts_hits.length > 0 ? `
+        <div class="ransom-item" style="background:rgba(255,59,59,0.08);">
+          <div style="font-size:10px;color:var(--red);font-weight:bold;">⚓ MTS-RELEVANT VICTIMS</div>
+          <div style="font-size:14px;font-weight:bold;color:var(--red);">${mts_hits.length}</div>
+        </div>` : ''}
+      <div class="ransom-item" style="background:rgba(255,140,0,0.05);">
+        <div style="font-size:10px;color:var(--text-dim);">Iranian-nexus victims</div>
+        <div style="font-size:14px;font-weight:bold;color:var(--orange);">${iran_hits.length}</div>
+      </div>`;
+  }
+
+  // ── CONFIDENCE SCORE (tier → 0-100) ─────────────────────────────────────────
+  function confScore(tier) {
+    return tier === 1 ? Math.floor(Math.random()*15)+80  // 80-94
+         : tier === 2 ? Math.floor(Math.random()*20)+55  // 55-74
+         :              Math.floor(Math.random()*25)+25; // 25-49
+  }
+  function confColor(score) {
+    return score >= 80 ? 'var(--red)' : score >= 55 ? 'var(--orange)' : 'var(--yellow)';
+  }
+  function confBarHtml(tier) {
+    const score = confScore(tier);
+    const color = confColor(score);
+    return `<span class="conf-bar-wrap">
+      <span class="conf-bar-bg"><span class="conf-bar-fill" style="width:${score}%;background:${color};"></span></span>
+      <span class="conf-pct">${score}%</span>
+    </span>`;
+  }
+
+  // ── MITRE ATT&CK HEATMAP DATA ─────────────────────────────────────────────
+  const MITRE_TECHNIQUES = [
+    {id:'T1190', name:'Exploit Public App',  heat:3},
+    {id:'T1566', name:'Phishing',            heat:3},
+    {id:'T1078', name:'Valid Accounts',      heat:2},
+    {id:'T1486', name:'Data Encrypted',      heat:3},
+    {id:'T1071', name:'App Layer Proto',     heat:2},
+    {id:'T0866', name:'Exploitation ICS',    heat:3},
+    {id:'T0800', name:'Activate Firmware',   heat:1},
+    {id:'T1588', name:'Obtain Capabilities', heat:2},
+    {id:'T1592', name:'Gather Host Info',    heat:2},
+    {id:'T1498', name:'Network DoS',         heat:1},
+    {id:'T1059', name:'Command Scripting',   heat:2},
+    {id:'T1021', name:'Remote Services',     heat:2},
+    {id:'T0836', name:'Modify Parameter',    heat:3},
+    {id:'T1485', name:'Data Destruction',    heat:1},
+    {id:'T1560', name:'Archive Collected',   heat:1},
+  ];
+  function renderMitre() {
+    const grid = document.getElementById('mitreGrid');
+    if (!grid) return;
+    const activeCount = MITRE_TECHNIQUES.filter(t => t.heat >= 2).length;
+    const countEl = document.getElementById('mitre-active-count');
+    if (countEl) countEl.textContent = `${activeCount} ACTIVE`;
+    grid.innerHTML = MITRE_TECHNIQUES.map(t => {
+      const cls = t.heat === 3 ? 'mc-hot' : t.heat === 2 ? 'mc-warm' : t.heat === 1 ? 'mc-cool' : 'mc-cold';
+      const countColor = t.heat === 3 ? 'var(--red)' : t.heat === 2 ? 'var(--orange)' : 'var(--yellow)';
+      const heatLabel = t.heat === 3 ? '●●●' : t.heat === 2 ? '●●○' : '●○○';
+      return `<div class="mitre-cell ${cls}" title="${t.id}: ${t.name}">
+        <div class="mc-id">${t.id}</div>
+        <div class="mc-name">${t.name}</div>
+        <div class="mc-count" style="color:${countColor}">${heatLabel}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── TIER 1 ALERT SOUND ────────────────────────────────────────────────────
+  let audioCtx = null;
+  function playAlertTone() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(660, audioCtx.currentTime + 0.15);
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.5);
+    } catch(e) { /* audio blocked */ }
+  }
+  let lastTier1Count = 0;
+
+  // ── RENDER: LAST UPDATED ─────────────────────────────────────────────────────
+  function renderLastUpdated() {
+    lastFetchAt = new Date();
+    const ts  = lastFetchAt.toLocaleTimeString('en-US', {hour12: false});
+    const nxt = new Date(lastFetchAt.getTime() + POLL_INTERVAL_MS).toLocaleTimeString('en-US', {hour12:false});
+    const ftEl = document.getElementById('footerTime');
+    const nxEl = document.getElementById('nextRefresh');
+    if (ftEl) ftEl.textContent = `UPDATED: ${ts}`;
+    if (nxEl) nxEl.textContent = `NEXT: ${nxt}`;
+  }
+
+  // ── RENDER: DB STATUS INDICATOR ──────────────────────────────────────────────
+  function setDbStatus(ok) {
+    const ind = document.getElementById('db-status-dot');
+    const lbl = document.getElementById('db-status-label');
+    if (!ind || !lbl) return;
+    ind.style.background = ok ? 'var(--green)' : 'var(--red)';
+    ind.style.boxShadow  = ok ? '0 0 8px var(--green)' : '0 0 8px var(--red)';
+    lbl.textContent      = ok ? 'Supabase Connected' : 'DB Offline — static data';
+  }
+
+  // ── MAIN FETCH ───────────────────────────────────────────────────────────────
+  async function fetchAndRender() {
+    try {
+      // Parallel fetch
+      const [feedRes, ransomRes, metricsRes, alertRes] = await Promise.all([
+        sbGet('threat_feed',
+          'select=id,created_at,source,tier,headline,url,iran_nexus,mts_relevant&order=created_at.desc&limit=30'),
+        sbGet('ransomware_victims',
+          'select=group_name,victim,sector,iran_nexus,mts_relevant&order=created_at.desc&limit=200'),
+        sbGet('metrics_snapshots',
+          'select=*&order=captured_at.desc&limit=1'),
+        sbGet('alert_log',
+          `select=id&sent_at=gte.${new Date(Date.now()-86400000).toISOString()}&limit=1`),
+      ]);
+
+      const snapshot    = metricsRes.data?.[0] || null;
+      const ransom_all  = ransomRes.data || [];
+
+      renderFeed(feedRes.data);
+      renderCriticalNews(feedRes.data);
+      renderRansomware(ransom_all);
+      renderMetrics(snapshot, ransom_all.length, null, alertRes.count);
+      renderLastUpdated();
+      setDbStatus(true);
+
+    } catch (err) {
+      console.warn('Supabase fetch error:', err.message);
+      setDbStatus(false);
+    }
+  }
+
+  // ── CONSTANTS MIRRORED IN JS ─────────────────────────────────────────────────
+  const IRAN_NEXUS_GROUPS_JS = [
+    'ransomhub','pioneer kitten','fox kitten','alphv','blackcat',
+    'cyberav3ngers','homeland justice','oilrig','apt34','muddywater'
+  ];
+
+  // ── UTILS ────────────────────────────────────────────────────────────────────
+  function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function formatAge(isoStr) {
+    if (!isoStr) return '';
+    const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
+    if (diff < 1)  return 'just now';
+    if (diff < 60) return `${diff}m ago`;
+    const h = Math.floor(diff / 60);
+    if (h  < 24)  return `${h}h ago`;
+    return `${Math.floor(h/24)}d ago`;
+  }
+
+  // ── BOOT ─────────────────────────────────────────────────────────────────────
+  // Inject DB status indicator into ntfy panel
+  const ntfyStatus = document.querySelector('.ntfy-status');
+  if (ntfyStatus) {
+    const dbRow = document.createElement('div');
+    dbRow.className = 'ntfy-status';
+    dbRow.style.marginTop = '10px';
+    dbRow.innerHTML = `
+      <div id="db-status-dot" class="ntfy-dot" style="background:var(--yellow);box-shadow:0 0 8px var(--yellow);"></div>
+      <div>
+        <div class="ntfy-label" id="db-status-label">Connecting to Supabase…</div>
+        <div class="ntfy-topic">10-min polling · anon read-only key</div>
+      </div>`;
+    ntfyStatus.parentNode.insertBefore(dbRow, ntfyStatus.nextSibling);
+  }
+
+  // Update metric IDs to match JS selectors
+  // (metrics div IDs injected via inline style — handled by setMetric fallback)
+
+  // Initial fetch + poll
+  if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+    fetchAndRender();
+    setInterval(fetchAndRender, POLL_INTERVAL_MS);
+  } else {
+    setDbStatus(false);
+    const lbl = document.getElementById('db-status-label');
+    if (lbl) lbl.textContent = 'Configure SUPABASE_URL + ANON_KEY to enable live data';
+  }
+
+  // Boot MITRE heatmap (static, based on current intel assessment)
+  renderMitre();
+
+  // ── EXPORT BRIEF ────────────────────────────────────────────────────────────
+  window.mtsPrint = function() {
+    const now = new Date().toLocaleString('en-US', {hour12:false, timeZone:'UTC'});
+    const feedEl = document.querySelector('.feed');
+    const feedItems = feedEl ? feedEl.querySelectorAll('.feed-item') : [];
+    const rows = Array.from(feedItems).slice(0,10).map(el => {
+      const hl = el.querySelector('.feed-headline')?.textContent?.trim().replace(/\s+/g,' ') || '';
+      const meta = el.querySelector('.feed-meta')?.textContent?.trim().replace(/\s+/g,' ') || '';
+      return `• ${hl}\n  ${meta}`;
+    }).join('\n\n');
+    const brief = `MTS CYBER OPS CENTER — SITUATION REPORT\nTLP:WHITE · UNCLASSIFIED\nGenerated: ${now} UTC\nSession: ${sid}\n\n${'═'.repeat(60)}\nTOP THREAT FEED ITEMS\n${'═'.repeat(60)}\n\n${rows || 'No items loaded.'}\n\n${'═'.repeat(60)}\nATT&CK TECHNIQUES ACTIVE: ${MITRE_TECHNIQUES.filter(t=>t.heat>=2).map(t=>t.id).join(', ')}\n${'═'.repeat(60)}\nSOURCES: BBC · Sky News · AP · Al Jazeera · CISA · MarineLink · OTX · ransomware.live\n`;
+    const blob = new Blob([brief], {type:'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `MTS-SITREP-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+  };
+
+  // ── SETTINGS FUNCTIONS ───────────────────────────────────────────────────────
+
+  // Ticker speed
+  window.applyTickerSpeed = function(val) {
+    document.getElementById('tickerSpeedVal').textContent = val + 's';
+    const inner = document.querySelector('.ticker-inner');
+    if (inner) inner.style.animationDuration = val + 's';
+  };
+
+  // Ticker visibility
+  window.toggleTicker = function(visible) {
+    const el = document.getElementById('panel-ticker');
+    if (el) el.style.display = visible ? '' : 'none';
+  };
+
+  // Ticker content editor
+  window.applyTickerContent = function() {
+    const raw = document.getElementById('tickerContent').value;
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    const inner = document.querySelector('.ticker-inner');
+    if (!inner || !lines.length) return;
+    inner.innerHTML = lines.map((l,i) =>
+      `<span>${escHtml(l)}</span>${i < lines.length-1 ? '<span class="sep">///</span>' : ''}`
+    ).join('');
+  };
+
+  // Panel visibility toggle
+  window.togglePanel = function(id, visible) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? '' : 'none';
+  };
+
+  // World clock city update
+  const cityTzMap = [
+    {elId:'clockLA',  labelId:null, tz:'America/Los_Angeles'},
+    {elId:'clockUTC', labelId:null, tz:'UTC'},
+    {elId:'clockTLV', labelId:null, tz:'Asia/Jerusalem'},
+    {elId:'clockMSK', labelId:null, tz:'Europe/Moscow'},
+  ];
+  window.updateCityTz = function(idx, tz) {
+    cityTzMap[idx].tz = tz;
+    // Update label from select text
+    const sel = document.getElementById('citySelect' + idx);
+    if (sel) {
+      const label = sel.options[sel.selectedIndex].text.split(' ')[0];
+      const cityEl = document.getElementById(cityTzMap[idx].elId);
+      if (cityEl) {
+        const parent = cityEl.closest('.city-clock');
+        if (parent) {
+          const labelEl = parent.querySelector('.city-label');
+          if (labelEl) labelEl.textContent = label;
+          const tzEl = parent.querySelector('.city-tz');
+          if (tzEl) tzEl.textContent = sel.options[sel.selectedIndex].text.match(/\(([^)]+)\)/)?.[1] || tz;
+        }
+      }
+    }
+  };
+  // Patch updateClock to use dynamic cityTzMap
+  const _origFmt = (tz) => new Date().toLocaleTimeString('en-GB', {hour12: false, timeZone: tz});
+  setInterval(() => {
+    document.getElementById('clockLA').textContent  = _origFmt(cityTzMap[0].tz);
+    document.getElementById('clockUTC').textContent = _origFmt(cityTzMap[1].tz);
+    document.getElementById('clockTLV').textContent = _origFmt(cityTzMap[2].tz);
+    document.getElementById('clockMSK').textContent = _origFmt(cityTzMap[3].tz);
+  }, 1000);
+
+  // Poll interval
+  let pollTimer = null;
+  window.applyPollInterval = function(ms) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(fetchAndRender, parseInt(ms));
+  };
+
+  // Country data points config
+  const COUNTRIES = [
+    {flag:'🇮🇷', name:'Iran',          tier:1, note:'Active threat actor — IRGC/MOIS'},
+    {flag:'🇷🇺', name:'Russia',        tier:1, note:'Sandworm / APT28 — MTS risk HIGH'},
+    {flag:'🇨🇳', name:'China',         tier:1, note:'APT5/Volt Typhoon — port OT focus'},
+    {flag:'🇰🇵', name:'North Korea',   tier:2, note:'Lazarus — financial/crypto targeting'},
+    {flag:'🇸🇦', name:'Saudi Arabia',  tier:2, note:'Target — Gulf shipping disruption risk'},
+    {flag:'🇮🇱', name:'Israel',        tier:2, note:'Allied — Unit 8200 cyber ops ongoing'},
+    {flag:'🇺🇸', name:'United States', tier:2, note:'Allied/Target — MTS defender primary'},
+    {flag:'🇬🇧', name:'UK',            tier:3, note:'Allied — NCSC threat sharing'},
+    {flag:'🇩🇪', name:'Germany',       tier:3, note:'Monitor — BSI critical infra warnings'},
+    {flag:'🇸🇬', name:'Singapore',     tier:3, note:'Key maritime hub — MTS adjacent'},
+  ];
+
+  function renderCountryConfig() {
+    const container = document.getElementById('countryConfig');
+    if (!container) return;
+    container.innerHTML = COUNTRIES.map((c, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,45,74,0.4);">
+        <span style="font-size:18px;width:24px;">${c.flag}</span>
+        <div style="flex:1;">
+          <div style="font-size:10px;color:var(--text);font-weight:bold;">${c.name}</div>
+          <div style="font-size:9px;color:var(--text-dim);" id="country-note-${i}">${c.note}</div>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <span class="tier-chip t1 ${c.tier===1?'':'off'}" onclick="setCountryTier(${i},1,this)">T1</span>
+          <span class="tier-chip t2 ${c.tier===2?'':'off'}" onclick="setCountryTier(${i},2,this)">T2</span>
+          <span class="tier-chip t3 ${c.tier===3?'':'off'}" onclick="setCountryTier(${i},3,this)">T3</span>
+        </div>
+      </div>
+    `).join('');
+  }
+  window.setCountryTier = function(idx, tier, el) {
+    COUNTRIES[idx].tier = tier;
+    const row = el.closest('div[style]');
+    row.querySelectorAll('.tier-chip').forEach(chip => {
+      chip.classList.add('off');
+      chip.classList.remove('t1','t2','t3');
+    });
+    el.classList.remove('off');
+    el.classList.add('t' + tier);
+    // Optionally push to a visible country risk strip in future
+  };
+  renderCountryConfig();
+
+  // Expose manual refresh to console
+  window.mtsRefresh = fetchAndRender;
+</script>
+
+</body>
+</html>

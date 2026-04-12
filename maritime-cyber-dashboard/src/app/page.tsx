@@ -3,6 +3,7 @@ import Link from 'next/link'
 import SeverityChart from '@/components/SeverityChart'
 import SectorChart from '@/components/SectorChart'
 import ExposureChart from '@/components/ExposureChart'
+import SignOutButton from '@/components/SignOutButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,8 +34,13 @@ export default async function Home() {
     <main className="min-h-screen bg-gray-950 text-white p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Maritime Cyber Dashboard</h1>
-        <p className="text-gray-400 mt-1">MTS-OPS-CENTER — Threat intelligence platform</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Maritime Cyber Dashboard</h1>
+            <p className="text-gray-400 mt-1">MTS-OPS-CENTER — Threat intelligence platform</p>
+          </div>
+          <SignOutButton />
+        </div>
       </div>
 
       {/* Stats bar */}

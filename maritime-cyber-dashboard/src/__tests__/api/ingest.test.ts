@@ -370,7 +370,7 @@ describe('/api/ingest', () => {
         exposure_score: 75,
       }
 
-      const isValid = data.exposure_score >= 0 && data.exposure_score <= 100
+      const isValid = data.exposure_score! >= 0 && data.exposure_score! <= 100
       expect(isValid).toBe(true)
     })
 

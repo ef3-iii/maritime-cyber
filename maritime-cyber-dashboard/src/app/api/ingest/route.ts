@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
 
   const payload = body as IngestPayload
 
-  let supabase: ReturnType<typeof createClient>
+  let supabase: ReturnType<typeof getSupabase>
   try {
     supabase = getSupabase()
   } catch (err: unknown) {

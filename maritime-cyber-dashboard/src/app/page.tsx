@@ -1,4 +1,7 @@
 import { getSupabaseServer } from '@/lib/supabase'
+import Link from 'next/link'
+
+export const dynamic = 'force-dynamic'
 
 const SEVERITY_COLOR: Record<string, string> = {
   Critical: 'bg-red-600 text-white',
@@ -70,8 +73,10 @@ export default async function Home() {
                 </thead>
                 <tbody>
                   {incidents.map((inc, i) => (
-                    <tr key={inc.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'}>
-                      <td className="p-3 font-medium max-w-xs truncate">{inc.title}</td>
+                    <tr key={inc.id} className={`${i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'} hover:bg-gray-700 cursor-pointer`}>
+                      <td className="p-3 font-medium max-w-xs truncate">
+                        <Link href={`/incidents/${inc.id}`} className="hover:text-blue-400">{inc.title}</Link>
+                      </td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${SEVERITY_COLOR[inc.severity] ?? 'bg-gray-600 text-white'}`}>
                           {inc.severity}
@@ -114,8 +119,10 @@ export default async function Home() {
                 </thead>
                 <tbody>
                   {assets.map((asset, i) => (
-                    <tr key={asset.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'}>
-                      <td className="p-3 font-medium">{asset.name}</td>
+                    <tr key={asset.id} className={`${i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'} hover:bg-gray-700 cursor-pointer`}>
+                      <td className="p-3 font-medium">
+                        <Link href={`/maritime-assets/${asset.id}`} className="hover:text-blue-400">{asset.name}</Link>
+                      </td>
                       <td className="p-3 text-gray-300">{asset.asset_type}</td>
                       <td className="p-3 text-gray-400">{asset.country ?? '—'}</td>
                       <td className="p-3">
@@ -158,8 +165,10 @@ export default async function Home() {
                 </thead>
                 <tbody>
                   {threatGroups.map((group, i) => (
-                    <tr key={group.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'}>
-                      <td className="p-3 font-semibold">{group.name}</td>
+                    <tr key={group.id} className={`${i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/50'} hover:bg-gray-700 cursor-pointer`}>
+                      <td className="p-3 font-semibold">
+                        <Link href={`/threat-groups/${group.id}`} className="hover:text-blue-400">{group.name}</Link>
+                      </td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${group.active ? 'bg-red-600 text-white' : 'bg-gray-600 text-gray-300'}`}>
                           {group.active ? 'Active' : 'Inactive'}

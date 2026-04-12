@@ -1,5 +1,8 @@
 import { getSupabaseServer } from '@/lib/supabase'
 import Link from 'next/link'
+import SeverityChart from '@/components/SeverityChart'
+import SectorChart from '@/components/SectorChart'
+import ExposureChart from '@/components/ExposureChart'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +49,13 @@ export default async function Home() {
             <div className="text-gray-400 text-sm mt-1">{label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <SeverityChart incidents={incidents ?? []} />
+        <SectorChart incidents={incidents ?? []} />
+        <ExposureChart assets={assets ?? []} />
       </div>
 
       <div className="grid grid-cols-1 gap-8">

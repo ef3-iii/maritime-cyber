@@ -39,7 +39,12 @@ export default async function Home() {
             <h1 className="text-3xl font-bold tracking-tight">Maritime Cyber Dashboard</h1>
             <p className="text-gray-400 mt-1">MTS-OPS-CENTER — Threat intelligence platform</p>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-2">
+            <Link href="/account" className="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded transition-colors">
+              Account
+            </Link>
+            <SignOutButton />
+          </div>
         </div>
       </div>
 

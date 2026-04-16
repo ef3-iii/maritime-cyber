@@ -2,6 +2,7 @@ import { getSupabaseServer } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import RelationshipEditor from '@/components/RelationshipEditor'
+import EnrichButton from '@/components/EnrichButton'
 
 const SEVERITY_COLOR: Record<string, string> = {
   Critical: 'bg-red-600 text-white',
@@ -95,11 +96,25 @@ export default async function IncidentDetail({ params }: { params: { id: string 
         )}
 
         {inc.source_url && (
-          <div className="bg-gray-900 rounded-lg p-4">
+          <div className="bg-gray-900 rounded-lg p-4 mb-4">
             <div className="text-gray-400 text-xs uppercase tracking-wide mb-1">Source</div>
             <a href={inc.source_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-sm break-all">
               {inc.source_url}
             </a>
+          </div>
+        )}
+
+        {/* Enrichment */}
+        <EnrichButton
+          incidentId={inc.id}
+          iocs={inc.iocs as Record<string, string[]> | null}
+        />
+
+        {/* Saved enrichment results (from previous runs) */}
+        {inc.enrichment && (
+          <div className="bg-gray-900 rounded-lg p-4 mt-4">
+            <div className="text-gray-400 text-xs uppercase tracking-wide mb-2">Last Saved Enrichment</div>
+            <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(inc.enrichment, null, 2)}</pre>
           </div>
         )}
       </div>

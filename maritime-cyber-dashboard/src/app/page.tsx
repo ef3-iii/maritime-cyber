@@ -4,6 +4,7 @@ import SeverityChart from '@/components/SeverityChart'
 import SectorChart from '@/components/SectorChart'
 import ExposureChart from '@/components/ExposureChart'
 import SignOutButton from '@/components/SignOutButton'
+import RealtimeRefresher from '@/components/RealtimeRefresher'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-6">
+      <RealtimeRefresher />
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-start justify-between">

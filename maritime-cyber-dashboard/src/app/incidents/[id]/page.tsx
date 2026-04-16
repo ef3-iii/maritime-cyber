@@ -1,6 +1,7 @@
 import { getSupabaseServer } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import RelationshipEditor from '@/components/RelationshipEditor'
 
 const SEVERITY_COLOR: Record<string, string> = {
   Critical: 'bg-red-600 text-white',
@@ -11,8 +12,17 @@ const SEVERITY_COLOR: Record<string, string> = {
 
 export default async function IncidentDetail({ params }: { params: { id: string } }) {
   const supabase = getSupabaseServer()
-  const { data: inc } = await supabase.from('incidents').select('*').eq('id', params.id).single()
+
+  const [{ data: inc }, { data: threatGroups }, { data: assets }] = await Promise.all([
+    supabase.from('incidents').select('*, threat_groups(id,name), maritime_assets(id,name)').eq('id', params.id).single(),
+    supabase.from('threat_groups').select('id, name').order('name'),
+    supabase.from('maritime_assets').select('id, name').order('name'),
+  ])
+
   if (!inc) notFound()
+
+  const linkedThreatGroup = inc.threat_groups as { id: string; name: string } | null
+  const linkedAsset = inc.maritime_assets as { id: string; name: string } | null
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-6">
@@ -30,7 +40,6 @@ export default async function IncidentDetail({ params }: { params: { id: string 
           {[
             ['Sector', inc.sector],
             ['Attack Vector', inc.attack_vector],
-            ['Threat Group', inc.threat_group ?? '—'],
             ['Target Organization', inc.target_organization ?? '—'],
             ['Target Country', inc.target_country ?? '—'],
             ['Recorded', new Date(inc.created_at).toLocaleString()],
@@ -40,6 +49,26 @@ export default async function IncidentDetail({ params }: { params: { id: string 
               <div className="font-medium">{value}</div>
             </div>
           ))}
+        </div>
+
+        {/* Relationship editors */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <RelationshipEditor
+            incidentId={inc.id}
+            field="threat_group_id"
+            label="Linked Threat Group"
+            options={threatGroups ?? []}
+            currentId={inc.threat_group_id ?? null}
+            currentName={linkedThreatGroup?.name ?? null}
+          />
+          <RelationshipEditor
+            incidentId={inc.id}
+            field="maritime_asset_id"
+            label="Linked Asset"
+            options={(assets ?? []).map(a => ({ id: a.id, name: a.name }))}
+            currentId={inc.maritime_asset_id ?? null}
+            currentName={linkedAsset?.name ?? null}
+          />
         </div>
 
         {inc.description && (

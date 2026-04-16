@@ -176,10 +176,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (payload.type === 'incident') {
-    const { error: dbError } = await supabase.from('incidents').insert({
-      ...payload.data,
-      created_at: new Date().toISOString(),
-    })
+    const { error: dbError } = await supabase
+      .from('incidents')
+      .upsert(
+        { ...payload.data, created_at: new Date().toISOString() },
+        { onConflict: 'source_url', ignoreDuplicates: true }
+      )
     if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 

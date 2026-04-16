@@ -1,0 +1,197 @@
+{
+  "name": "AlienVault OTX → MTS-OPS Ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "d4e5f6a7-0002-0002-0002-000000000001",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the modified_since timestamp (last 24 hours)\nconst since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();\nreturn [{ json: { since } }];"
+      },
+      "id": "d4e5f6a7-0002-0002-0002-000000000002",
+      "name": "Build Timestamp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://otx.alienvault.com/api/v1/pulses/subscribed?modified_since={{ encodeURIComponent($json.since) }}&limit=50",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-OTX-API-KEY",
+              "value": "YOUR_OTX_API_KEY_HERE"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "d4e5f6a7-0002-0002-0002-000000000003",
+      "name": "Fetch OTX Pulses",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter OTX pulses to maritime-relevant ones and transform to MTS-OPS format\n\nconst MARITIME_KEYWORDS = [\n  'maritime', 'shipping', 'vessel', 'port', 'offshore', 'ais',\n  'gps spoofing', 'navy', 'coast guard', 'tanker', 'cargo', 'imo',\n  'dnv', 'classification society', 'scada', 'ot security'\n];\n\nconst VECTOR_MAP = [\n  { keywords: ['ransomware'],          vector: 'Ransomware' },\n  { keywords: ['phishing', 'spear'],   vector: 'Phishing' },\n  { keywords: ['supply chain'],        vector: 'Supply Chain' },\n  { keywords: ['ddos', 'denial'],      vector: 'DDoS' },\n  { keywords: ['insider'],             vector: 'Insider Threat' },\n  { keywords: ['iot', 'ot', 'scada', 'ics'], vector: 'IoT/OT Compromise' },\n  { keywords: ['exploit', 'cve', 'vuln'], vector: 'Vulnerability Exploitation' },\n  { keywords: ['intrusion', 'lateral'], vector: 'Network Intrusion' },\n];\n\nconst SECTOR_KEYWORDS = [\n  { keywords: ['maritime', 'shipping', 'vessel', 'port', 'tanker', 'cargo', 'offshore'], sector: 'Maritime' },\n  { keywords: ['energy', 'oil', 'gas', 'power', 'grid'],    sector: 'Energy' },\n  { keywords: ['transport', 'aviation', 'rail'],             sector: 'Transportation' },\n  { keywords: ['water', 'utility'],                          sector: 'Water' },\n  { keywords: ['health', 'hospital', 'medical'],             sector: 'Healthcare' },\n  { keywords: ['bank', 'financial', 'fintech'],              sector: 'Financial' },\n  { keywords: ['telecom', 'isp', 'satellite'],               sector: 'Telecom' },\n  { keywords: ['government', 'military', 'defence', 'navy'], sector: 'Government' },\n];\n\nfunction detectVector(text) {\n  const t = text.toLowerCase();\n  for (const { keywords, vector } of VECTOR_MAP) {\n    if (keywords.some(k => t.includes(k))) return vector;\n  }\n  return 'Malware';\n}\n\nfunction detectSector(text) {\n  const t = text.toLowerCase();\n  for (const { keywords, sector } of SECTOR_KEYWORDS) {\n    if (keywords.some(k => t.includes(k))) return sector;\n  }\n  return 'Maritime'; // Default for this feed — if we're filtering to maritime pulses\n}\n\nconst response = $input.first().json;\nconst pulses = (response.results || []);\n\nconst maritimePulses = pulses.filter(p => {\n  const text = [\n    p.name || '',\n    p.description || '',\n    ...(p.tags || []),\n    ...(p.industries || [])\n  ].join(' ').toLowerCase();\n  return MARITIME_KEYWORDS.some(kw => text.includes(kw));\n});\n\nif (maritimePulses.length === 0) {\n  return [{ json: { __skip: true } }];\n}\n\nreturn maritimePulses.map(p => {\n  const indicators = p.indicators || [];\n  const fullText = `${p.name} ${p.description || ''} ${(p.tags || []).join(' ')}`;\n\n  const iocs = {\n    ips: indicators\n      .filter(i => i.type === 'IPv4' || i.type === 'IPv6')\n      .map(i => i.indicator)\n      .slice(0, 20),\n    domains: indicators\n      .filter(i => i.type === 'domain' || i.type === 'hostname')\n      .map(i => i.indicator)\n      .slice(0, 20),\n    hashes: indicators\n      .filter(i => ['FileHash-MD5', 'FileHash-SHA256', 'FileHash-SHA1'].includes(i.type))\n      .map(i => i.indicator)\n      .slice(0, 20),\n    urls: indicators\n      .filter(i => i.type === 'URL')\n      .map(i => i.indicator)\n      .slice(0, 10),\n  };\n\n  // Remove empty arrays\n  Object.keys(iocs).forEach(k => { if (iocs[k].length === 0) delete iocs[k]; });\n\n  return {\n    json: {\n      type: 'incident',\n      data: {\n        title: (p.name || 'OTX Pulse').slice(0, 200),\n        severity: 'Medium',\n        sector: detectSector(fullText),\n        attack_vector: detectVector(fullText),\n        description: p.description ? p.description.slice(0, 500) : null,\n        iocs: Object.keys(iocs).length > 0 ? iocs : null,\n        source_url: `https://otx.alienvault.com/pulse/${p.id}`,\n      }\n    }\n  };\n});"
+      },
+      "id": "d4e5f6a7-0002-0002-0002-000000000004",
+      "name": "Filter & Transform Pulses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.__skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4e5f6a7-0002-0002-0002-000000000005",
+      "name": "Skip If No Maritime Pulses",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://maritime-cyber-dashboard.vercel.app/api/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "a1bc8726cc6e9b502fb771e0021e6cbaecc647e903374e886500a4401697a6b7"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "d4e5f6a7-0002-0002-0002-000000000006",
+      "name": "POST to /api/ingest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Build Timestamp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Timestamp": {
+      "main": [
+        [
+          {
+            "node": "Fetch OTX Pulses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch OTX Pulses": {
+      "main": [
+        [
+          {
+            "node": "Filter & Transform Pulses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Transform Pulses": {
+      "main": [
+        [
+          {
+            "node": "Skip If No Maritime Pulses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip If No Maritime Pulses": {
+      "main": [
+        [
+          {
+            "node": "POST to /api/ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    { "name": "mts-ops" },
+    { "name": "threat-intel" },
+    { "name": "alienvault" }
+  ],
+  "triggerCount": 1,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
